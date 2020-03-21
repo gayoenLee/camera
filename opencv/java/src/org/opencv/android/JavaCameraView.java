@@ -66,6 +66,11 @@ public class JavaCameraView extends CameraBridgeViewBase implements PreviewCallb
         super(context, attrs);
     }
 
+    @Override
+    public void takePicture(String fileName) {
+Log.i("자바카메라뷰", "테이크픽쳐");
+    }
+
     protected boolean initializeCamera(int width, int height) {
         Log.d(TAG, "Initialize java camera");
         boolean result = true;

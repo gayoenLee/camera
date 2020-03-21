@@ -63,6 +63,11 @@ public class JavaCamera2View extends CameraBridgeViewBase {
         super(context, attrs);
     }
 
+    @Override
+    public void takePicture(String fileName) {
+Log.i("테이크픽쳐", "테이크픽쳐");
+    }
+
     private void startBackgroundThread() {
         Log.i(LOGTAG, "startBackgroundThread");
         stopBackgroundThread();

@@ -15,7 +15,6 @@ public class DeviceOrientation {
     private float averagePitch = 0;
     private float averageRoll = 0;
     private int orientation = ORIENTATION_PORTRAIT;
-
     private float[] pitches;
     private float[] rolls;
 
@@ -31,8 +30,6 @@ public class DeviceOrientation {
     public int getOrientation() {
         return orientation;
     }
-
-
 
     SensorEventListener sensorEventListener = new SensorEventListener() {
         float[] mGravity;
