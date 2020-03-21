@@ -6,6 +6,7 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import android.Manifest;
+import android.accessibilityservice.AccessibilityService;
 import android.content.DialogInterface;
 import android.graphics.Bitmap;
 import android.hardware.Camera;
@@ -29,11 +30,15 @@ import org.opencv.android.OpenCVLoader;
 import org.opencv.android.Utils;
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
+import org.opencv.core.Scalar;
+import org.opencv.core.Size;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
+import org.opencv.videoio.VideoWriter;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -53,9 +58,24 @@ public class MainActivity extends AppCompatActivity
     ImageButton changeDirectionBtn;
     ImageButton makeFilterBtn;
     String filename;
+    Button nothingBtn;
+    Button hsvBtn;
+    Button smoothBtn;
+    Button grayBtn;
+    Button roiBtn;
     //전면 카메라, 후면 카메라 방향 전환에 사용.
     private int cameraID;
     int i=0;
+
+    //필터 효과 관련 변수들
+    int RGBA;
+    int GrayScale;
+    int HSV;
+    int Smoothing;
+    int ROI;
+    Scalar scalarLow, scalarHigh;
+    Mat mat1, mat2, gray;
+    private VideoWriter videoWriter;
 
     private CameraBridgeViewBase mOpenCvCameraView;
     //회색
@@ -74,6 +94,102 @@ public class MainActivity extends AppCompatActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         changeDirectionBtn = findViewById(R.id.change_direction_btn);
+        makeFilterBtn = findViewById(R.id.magic_effect_btn);
+        nothingBtn = findViewById(R.id.no_effect);
+        hsvBtn = findViewById(R.id.hsv_effect);
+        smoothBtn = findViewById(R.id.smoothing_effect);
+        grayBtn = findViewById(R.id.gray_effect);
+        roiBtn = findViewById(R.id.roi_effect);
+        //scalar//////////////////////////
+        scalarLow = new Scalar(120-10, 30, 30);
+        scalarHigh = new Scalar(120+10, 255, 255);
+        mat1 = new Mat();
+        mat2 = new Mat();
+        makeFilterBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Log.i(TAG, "필터 버튼 클릭");
+                if(nothingBtn.getVisibility()==v.GONE){
+                    Log.i(TAG, "필터 안에 버튼 보이도록 하기");
+                    nothingBtn.setVisibility(v.VISIBLE);
+                }else{
+                    nothingBtn.setVisibility(v.GONE);
+                }
+                if(hsvBtn.getVisibility()==v.GONE){
+                    hsvBtn.setVisibility(v.VISIBLE);
+                }else{
+                    hsvBtn.setVisibility(v.GONE);
+                }
+                if(smoothBtn.getVisibility()==v.GONE){
+                    smoothBtn.setVisibility(v.VISIBLE);
+                }else{
+                    smoothBtn.setVisibility(v.GONE);
+                }
+                if(grayBtn.getVisibility()==v.GONE){
+                    grayBtn.setVisibility(v.VISIBLE);
+                }else{
+                    grayBtn.setVisibility(v.GONE);
+                }
+                if(roiBtn.getVisibility()==v.GONE){
+                    roiBtn.setVisibility(v.VISIBLE);
+                }else{
+                    roiBtn.setVisibility(v.GONE);
+                }
+            }
+        });
+        //필터 버튼듪
+        nothingBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+              RGBA = 1;
+              GrayScale = 0;
+              HSV = 0;
+              Smoothing = 0;
+              ROI = 0;
+            }
+        });
+        hsvBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                RGBA = 0;
+                GrayScale = 0;
+                HSV = 1;
+                Smoothing = 0;
+                ROI = 0;
+
+            }
+        });
+        smoothBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+RGBA = 0;
+GrayScale = 0;
+HSV = 0;
+Smoothing = 1;
+ROI = 0;
+            }
+        });
+        grayBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                RGBA = 0;
+                GrayScale = 1;
+                HSV = 0;
+                Smoothing = 0;
+                ROI = 0;
+            }
+        });
+
+        roiBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                RGBA = 0;
+                GrayScale = 0;
+                HSV = 0;
+                Smoothing = 0;
+                ROI = 1;
+            }
+        });
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED)
         {
@@ -151,10 +267,8 @@ public class MainActivity extends AppCompatActivity
                 }
             }
         });
-
-
-
     }
+
    /* public void SaveImage (Mat mat) {
         Mat mIntermediateMat = new Mat();
         Imgproc.cvtColor(matResult, mIntermediateMat, Imgproc.COLOR_RGBA2BGR, 3);
@@ -228,17 +342,56 @@ public class MainActivity extends AppCompatActivity
 
     }
 
-//프레임 전달이 필요한 경우에 호출됨.
+    public void leviBlueFilter (Mat input, Mat mask){
+        List<Mat> channels = new ArrayList<>();
+
+        Imgproc.cvtColor(input, input, Imgproc.COLOR_RGB2Lab);
+        Imgproc.GaussianBlur(input,input,new Size(3,3),0);
+        Core.split(input, channels);
+        Imgproc.threshold(channels.get(1), mask, 145, 255, Imgproc.THRESH_BINARY);
+
+        for(int i=0;i<channels.size();i++){
+            channels.get(i).release();
+        }
+    }
+
+
+
+    //프레임 전달이 필요한 경우에 호출됨.
     @Override
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
 
         matInput = inputFrame.rgba();
-        if ( matResult == null )
+        if(GrayScale == 1){
+            matInput = inputFrame.gray();
+        }
+        if(RGBA ==1){
+            matInput = inputFrame.rgba();
+        }
+        if(HSV ==1){
+            Imgproc.cvtColor(inputFrame.rgba(), mat1, Imgproc.COLOR_RGB2HSV);
+            //inRange는 그 범위안에 들어가게 되면 0으로 만들어주고, 나머지는 1로 만들어 흑백사진을 만듦.
+            Core.inRange(mat1, scalarLow, scalarHigh, mat2);
+            matInput = mat2;
+        }
+        if(Smoothing == 1){
+            org.opencv.core.Size size = new Size(21, 21);
+            Imgproc.boxFilter(matInput, matInput, -1, size);
+        }
+        if(ROI == 1){
+            Imgproc.cvtColor(inputFrame.rgba(), mat1, Imgproc.COLOR_RGB2HSV);
+            Core.bitwise_and(matInput, matInput, mat1, mat2);
+            matInput = mat1;
+        }
+        return matInput;
+
+
+       /* if ( matResult == null )
             matResult = new Mat(matInput.rows(), matInput.cols(), matInput.type());
-        Core.flip(matInput, matInput, 1);
+        Core.flip(matInput, matResult, 1);*/
        //회색 음영 적용
-        ConvertRGBtoGray(matInput.getNativeObjAddr(), matResult.getNativeObjAddr());
-        return matResult;
+        //ConvertRGBtoGray(matInput.getNativeObjAddr(), matResult.getNativeObjAddr());
+       // return matResult;
     }
 
     protected List<? extends CameraBridgeViewBase> getCameraViewList() {
