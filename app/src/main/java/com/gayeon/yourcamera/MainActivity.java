@@ -463,7 +463,6 @@ public class recordingTask extends AsyncTask<Void, Void, String>{
 
     //녹화한 동영상 파일 저장
     public static File getOutputMediaFile() {
-
         File mediaStorageDir = new File(
                 Environment
                         .getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
