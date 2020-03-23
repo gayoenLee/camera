@@ -14,9 +14,12 @@ import android.content.DialogInterface;
 import android.content.res.TypedArray;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.PorterDuff;
 import android.graphics.Rect;
+import android.media.MediaRecorder;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
@@ -57,6 +60,9 @@ public abstract class CameraBridgeViewBase extends SurfaceView implements Surfac
     public static final int RGBA = 1;
     public static final int GRAY = 2;
 
+    protected MediaRecorder mMediaRecorder;
+    protected Surface surface = null;
+
     public CameraBridgeViewBase(Context context, int cameraId) {
         super(context);
         mCameraIndex = cameraId;
@@ -92,6 +98,24 @@ public abstract class CameraBridgeViewBase extends SurfaceView implements Surfac
     }
 
     public abstract void takePicture(String fileName);
+
+    public void releaseRecord(){
+        surface.release();
+    }
+
+    public void setRecorder(MediaRecorder recorder) {
+        mMediaRecorder = recorder;
+
+        if(mMediaRecorder != null){
+            surface = mMediaRecorder.getSurface();
+        }else{
+
+        }
+    }
+
+    public MediaRecorder getRecorder() {
+        return mMediaRecorder;
+    }
 
     public interface CvCameraViewListener {
         /**
@@ -334,7 +358,7 @@ public abstract class CameraBridgeViewBase extends SurfaceView implements Surfac
 
     private void processEnterState(int state) {
         Log.d(TAG, "call processEnterState: " + state);
-        switch(state) {
+       /* switch(state) {
         case STARTED:
             onEnterStartedState();
             if (mListener != null) {
@@ -347,7 +371,21 @@ public abstract class CameraBridgeViewBase extends SurfaceView implements Surfac
                 mListener.onCameraViewStopped();
             }
             break;
-        };
+        };*/
+        /* Connect camera */
+        if (!connectCamera(getWidth(), getHeight())) {
+            AlertDialog ad = new AlertDialog.Builder(getContext()).create();
+            ad.setCancelable(false); // This blocks the 'BACK' button
+            ad.setMessage("It seems that you device does not support camera (or it is locked). Application will be closed.");
+            ad.setButton(DialogInterface.BUTTON_NEUTRAL,  "OK", new DialogInterface.OnClickListener() {
+                public void onClick(DialogInterface dialog, int which) {
+                    dialog.dismiss();
+                    ((Activity) getContext()).finish();
+                }
+            });
+            ad.show();
+
+        }
     }
 
     private void processExitState(int state) {
@@ -427,7 +465,7 @@ public abstract class CameraBridgeViewBase extends SurfaceView implements Surfac
         if (bmpValid && mCacheBitmap != null) {
             Canvas canvas = getHolder().lockCanvas();
             if (canvas != null) {
-                canvas.drawColor(0, android.graphics.PorterDuff.Mode.CLEAR);
+                canvas.drawColor(0, PorterDuff.Mode.CLEAR);
                 if (BuildConfig.DEBUG)
                     Log.d(TAG, "mStretch value: " + mScale);
 
