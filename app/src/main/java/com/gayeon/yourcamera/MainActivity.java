@@ -1,66 +1,61 @@
 package com.gayeon.yourcamera;
 
+import android.Manifest;
+import android.annotation.SuppressLint;
+import android.annotation.TargetApi;
+import android.content.DialogInterface;
+import android.content.pm.PackageManager;
+import android.content.res.AssetManager;
+import android.graphics.Bitmap;
+import android.media.MediaRecorder;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Environment;
+import android.util.Log;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
+import android.view.View;
+import android.view.WindowManager;
+import android.widget.Button;
+import android.widget.ImageButton;
+
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
-import android.Manifest;
-import android.accessibilityservice.AccessibilityService;
-import android.annotation.SuppressLint;
-import android.content.DialogInterface;
-import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.PorterDuff;
-import android.graphics.Rect;
-import android.hardware.Camera;
-import android.hardware.camera2.CameraManager;
-import android.media.CamcorderProfile;
-import android.media.MediaRecorder;
-import android.media.projection.MediaProjectionManager;
-import android.os.AsyncTask;
-import android.os.Bundle;
-import android.annotation.TargetApi;
-import android.content.pm.PackageManager;
-import android.os.Build;
-import android.os.Environment;
-import android.provider.MediaStore;
-import android.util.Log;
-import android.view.Surface;
-import android.view.SurfaceView;
-import android.view.View;
-import android.view.WindowManager;
-import android.widget.Button;
-import android.widget.ImageButton;
-import android.widget.Toast;
-
 import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.FpsMeter;
-import org.opencv.android.JavaCamera2View;
-import org.opencv.android.JavaCameraView;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
-import org.opencv.android.Utils;
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
+import org.opencv.core.MatOfRect;
+import org.opencv.core.Point;
+import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
+import org.opencv.objdetect.CascadeClassifier;
+import org.opencv.videoio.VideoCapture;
 import org.opencv.videoio.VideoWriter;
 
 import java.io.File;
-import java.io.IOException;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
 import static android.Manifest.permission.CAMERA;
+import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
+import static org.opencv.imgproc.Imgproc.circle;
+import static org.opencv.imgproc.Imgproc.ellipse;
 
 public class MainActivity extends AppCompatActivity
         implements CameraBridgeViewBase.CvCameraViewListener2 {
@@ -98,17 +93,44 @@ public class MainActivity extends AppCompatActivity
     private CameraBridgeViewBase.CvCameraViewListener2 mListener;
     //비디오 녹화 관련 변수들
     public MediaRecorder mMediaRecorder;
-    protected Surface surface = null;
+    Mat mYuv;
+
     protected float mScale = 0;
     protected FpsMeter mFpsMeter = null;
     private Bitmap mCacheBitmap;
     private Mat edgesMat;
     File dir;
     int imageIndex = 0;
+    private VideoWriter videoWriter;
+    private VideoCapture videoCapture;
+
+    SurfaceHolder surfaceHolder;
+    private Size frameSize;
     //녹화 진행 여부를 판단하는 변수.
     private boolean isRecording = false;
+
+    int videoLength;
+    int frameNumber;
+    int framePerSecond;
+
+    int frame_width;
+
+    int frame_height;
+    private boolean FACEDETECT = false;
+
     //회색
-    public native void ConvertRGBtoGray(long matAddrInput, long matAddrResult);
+    // public native void ConvertRGBtoGray(long matAddrInput, long matAddrResult);
+
+
+    public native long loadCascade(String cascadeFileName);
+
+    public native int detect(long cascadeClassifier_face,
+
+                             long cascadeClassifier_eye, long matAddrInput, long matAddrResult);
+
+    public long cascadeClassifier_face = 0;
+    public long cascadeClassifier_eye = 0;
+
     static {
         System.loadLibrary("opencv_java4");
         System.loadLibrary("native-lib");
@@ -118,6 +140,7 @@ public class MainActivity extends AppCompatActivity
     @RequiresApi(api = Build.VERSION_CODES.M)
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         videoBtn = findViewById(R.id.video_record_btn);
@@ -132,9 +155,15 @@ public class MainActivity extends AppCompatActivity
                 != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(MainActivity.this,
                     new String[]{Manifest.permission.RECORD_AUDIO}
-            ,0);
-
+                    , 0);
             return;
+        }
+        //외부 저장소 접근 허용 권한
+        if (ContextCompat.checkSelfPermission(this, WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(
+                    this,
+                    new String[]{WRITE_EXTERNAL_STORAGE},
+                    PERMISSION_REQUEST_WRITE_EXTERNAL_STORAGE);
         }
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
@@ -145,6 +174,7 @@ public class MainActivity extends AppCompatActivity
         mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
         mOpenCvCameraView.setLayoutDirection(View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
         mOpenCvCameraView.setCvCameraViewListener(this);
+        //후면 카메라 디폴트
         cameraID = 0;
         mOpenCvCameraView.setCameraIndex(cameraID);
         //scalar//////////////////////////
@@ -152,17 +182,21 @@ public class MainActivity extends AppCompatActivity
         scalarHigh = new Scalar(120 + 10, 255, 255);
         mat1 = new Mat();
         mat2 = new Mat();
-//녹화 기능
+        //녹화
+        videoCapture = new VideoCapture(0);
+
+        //녹화 기능
         videoBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-Log.i(TAG, "비디오 녹화하기 버튼 클릭");
+                                        @Override
+                                        public void onClick(View v) {
+                                            Log.i(TAG, "얼굴 인식 시작 버튼 클릭");
+                                            FACEDETECT = true;
 
-                new recordingTask().execute();
 
-            }});
-       // videoWriter = new VideoWriter("saved_video.avi", VideoWriter.fourcc('M', 'J', 'P', 'G'), 25.0D, new Size(mOpenCvCameraView.getWidth(), mOpenCvCameraView.getHeight()));
-        //videoWriter.open("saved_video.avi", VideoWriter.fourcc('M', 'J', 'P', 'G'), 25.0D, new Size(mOpenCvCameraView.getWidth(), mOpenCvCameraView.getHeight()));
+                                        }
+                                    }
+        );
+
         //필터 선택 버튼
         makeFilterBtn.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -249,13 +283,7 @@ Log.i(TAG, "비디오 녹화하기 버튼 클릭");
                 ROI = 1;
             }
         });
-        //외부 저장소 접근 허용 권한
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(
-                    this,
-                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
-                    PERMISSION_REQUEST_WRITE_EXTERNAL_STORAGE);
-        }
+
         //사진 찍기 버튼.
         takePhotoBtn = findViewById(R.id.take_photo);
         takePhotoBtn.setOnClickListener(new View.OnClickListener() {
@@ -265,10 +293,7 @@ Log.i(TAG, "비디오 녹화하기 버튼 클릭");
                 Log.i(TAG, "사진 찍기 클릭");
                 SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss");
                 String currentDateandTime = sdf.format(new Date());
-                //String fileName = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM).getPath()/*getExternalStorageDirectory().getPath()*/ +
-                //      "/sample_picture_" + currentDateandTime + ".jpg";
 
-                // Imgcodecs.imwrite(fileName, matResult);
                 Mat mIntermediateMat = new Mat();
                 Imgproc.cvtColor(matInput, mIntermediateMat, Imgproc.COLOR_RGBA2BGR, 3);
 
@@ -276,8 +301,10 @@ Log.i(TAG, "비디오 녹화하기 버튼 클릭");
                 path.mkdirs();
                 File file = new File(path, currentDateandTime + "image.png");
                 filename = file.toString();
+                //사진 찍기
                 mOpenCvCameraView.takePicture(filename);
                 Boolean bool = Imgcodecs.imwrite(filename, mIntermediateMat);
+
                 Log.i(TAG, "이미지 파일 경로 확인 : " + filename);
                 if (bool)
                     Log.i(TAG, "SUCCESS writing image to external storage");
@@ -285,8 +312,6 @@ Log.i(TAG, "비디오 녹화하기 버튼 클릭");
                     Log.i(TAG, "Fail writing image to external storage");
             }
         });
-
-
         //렌즈 방향 전환하기
         changeDirectionBtn.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -312,163 +337,210 @@ Log.i(TAG, "비디오 녹화하기 버튼 클릭");
         });
     }
 
+   /* private void detectFace(){
+        Log.i(TAG, "얼굴과 눈 검출하기 위해 학습시켜 놓은 분류기 로드");
+        CascadeClassifier cascadeClassifier = new CascadeClassifier();
+        if(cascadeClassifier.empty()){
+            Log.i(TAG, "디텍트 페이스 메소드2");
+            String path = Environment.getExternalStorageDirectory().getAbsolutePath();
+            cascadeClassifier.load(path + "/haarcascade_frontalface_alt.xml");
+            cascadeClassifier.load(path + "/haarcascade_eye_tree_eyeglasses.xml");
+        }
+        if(cascadeClassifier.empty()){
+            Log.i(TAG, "디텍트 페이스 메소드3");
+            return;
+        }
+        Log.i(TAG, "얼굴 검출할 그레이스케일 이미지 준비.");
+        Mat gray = new Mat();
+        Mat resizingGray = new Mat();
+        Imgproc.cvtColor(matInput, gray, Imgproc.COLOR_BGRA2GRAY);
+        Log.i(TAG, "디텍트 페이스 메소드4");
+        Imgproc.resize(gray, resizingGray,  new Size(1280, 900) );
 
-public class recordingTask extends AsyncTask<Void, Void, String>{
+        Log.i(TAG, "MatOfRect : Mat를 상속받아 만들어진 클래스.");
+        MatOfRect faces = new MatOfRect();
+        Log.i(TAG, "이미지에서 얼굴 검출");
+        cascadeClassifier.detectMultiScale(resizingGray, faces, 3, 2, 0, new Size(60, 60));
+
+        Log.i(TAG, "디텍트 페이스 메소드7");
+        for(int i=0; i<faces.total(); i++){
+            Log.i(TAG, "얼굴 이미지들 포문 안에서 검출");
+            Rect rc = faces.toList().get(i);
+            rc.x += 3;
+            rc.y += 3;
+            rc.width += 3;
+            rc.height += 3;
+            rectangle(matInput, rc, new Scalar(255, 50, 100), 2);
+      //검출한 입들 배열
+       Mat faceROI = resizingGray.submat(rc);
+            MatOfRect eyes = new MatOfRect();
+
+       cascadeClassifier.detectMultiScale(faceROI, eyes, 1.1, 2, 0, new Size(30, 30));
+     //  Rect[] eyesArray = eyes.toArray();
+       for(int j=0; j<eyes.total(); j++){
+           Rect eyeRect = eyes.toList().get(i);
+           eyeRect.x +=1.1;
+           eyeRect.y += 1.1;
+           eyeRect.width += 1.1;
+           eyeRect.height += 1.1;
+
+           int radius = (int)Math.round((eyeRect.width + eyeRect.height)*0.25);
+         // Imgproc.circle(matInput, eyeRect, raduius, new Scalar(255, 202, 121), 4, 8, 0);
+       }
+        }
 
 
 
+        Log.i(TAG, "디텍트 페이스 메소드8");
+    }*/
 
-    @Override
-    protected String doInBackground(Void... voids) {
-        if (!isRecording) {
-            Log.i(TAG, "비디오 녹화하기 번재 이프문 들어옴");
-            isRecording = true;
-//카메라가 처음에 녹화 상태가 아닌 경우 녹화 상태를 true로 바꿔줌.
-            //그리고 prepareVideoRecorder로 카메라 세팅
-            if (prepareVideoRecorder()) {
-                Log.i(TAG, "비디오 녹화하기 a번재 이프문 안");
-                mOpenCvCameraView.getRecorder();
+    private void detectFace() {
+        Log.i(TAG, "얼굴과 눈 검출하기 위해 학습시켜 놓은 분류기 로드");
+        CascadeClassifier cascadeClassifier = new CascadeClassifier();
+        if (cascadeClassifier.empty()) {
+            Log.i(TAG, "디텍트 페이스 메소드2");
+            String path = Environment.getExternalStorageDirectory().getAbsolutePath();
+            cascadeClassifier.load(path + "/haarcascade_frontalface_alt.xml");
+            cascadeClassifier.load(path + "/haarcascade_eye_tree_eyeglasses.xml");
+        }
+        if (cascadeClassifier.empty()) {
+            Log.i(TAG, "디텍트 페이스 메소드3");
+            return;
+        }
+        Log.i(TAG, "얼굴 검출할 그레이스케일 이미지 준비.");
+        Mat gray = new Mat();
+        Mat resizingGray = new Mat();
+        Imgproc.cvtColor(matInput, gray, Imgproc.COLOR_BGRA2GRAY);
+        Log.i(TAG, "디텍트 페이스 메소드4");
+        Imgproc.resize(gray, resizingGray, new Size(1920, 1080));
 
-                Log.i(TAG, "비디오 녹화하기 b번재 이프문 안");
-                mOpenCvCameraView.setRecorder(mMediaRecorder);
+        Log.i(TAG, "MatOfRect : Mat를 상속받아 만들어진 클래스.");
+        MatOfRect faces = new MatOfRect();
+        Log.i(TAG, "이미지에서 얼굴 검출");
+        cascadeClassifier.detectMultiScale(resizingGray, faces, 1.1, 2, 0, new Size(30, 30));
+        Rect[] facesArray = faces.toArray();
 
-                Log.i(TAG, "비디오 녹화하기 c번재 이프문 안");
-                // prepareVideoRecorder();
+        Log.i(TAG, "디텍트 페이스 메소드7");
+        for (int i = 0; i < facesArray.length; i++) {
+            Log.i(TAG, "얼굴 이미지들 포문 안에서 검출");
+            //point
+            Point centre1 = new Point(facesArray[i].x + facesArray[i].width * 0.5,
+                    facesArray[i].y + facesArray[i].height * 0.5);
+            //ellipse
+            ellipse(matInput, centre1, new Size(facesArray[i].width * 0.5, facesArray[i].height * 0.5), 0, 0, 360,
+                    new Scalar(255, 0, 255), 4, 8, 0);
 
-                Log.i(TAG, "비디오 녹화하기 d번재 이프문 안");
-                mMediaRecorder.start();
+            Mat faceROI = gray.submat(facesArray[i]);
+//검출한 눈 배열
+            MatOfRect eyes = new MatOfRect();
+            cascadeClassifier.detectMultiScale(faceROI, eyes, 2, 2, 0, new Size(30, 30));
 
-                Log.i(TAG, "비디오 녹화하기 e번재 이프문 안");
-            } else {
-
-                Log.i(TAG, "비디오 녹화하기 두번재 이프문 안");
-                releaseMediaRecorder();
-
+            Rect[] eyesArray = eyes.toArray();
+            for (int j = 0; j < eyesArray.length; j++) {
+                Point centre2 = new Point(facesArray[i].x + eyesArray[j].x + eyesArray[j].width * 0.5,
+                        facesArray[i].y + eyesArray[j].y + eyesArray[j].height * 0.5);
+                int radius = (int) Math.round((eyesArray[j].width + eyesArray[j].height) * 0.25);
+                circle(matInput, centre2, radius, new Scalar(255, 0, 0), 4, 8, 0);
             }
-        } else {
-            Log.i(TAG, "비디오 녹화하기 세번재 이프문 안");
-            isRecording = false;
-
-            try {
-                if (mMediaRecorder != null) {
-
-                    mMediaRecorder.stop();// stop the recording
-
-                    mMediaRecorder = null;
-
-                } else
-                    Log.e(TAG, "onRecordSignal mediaRecorder is null");
-
-            } catch (RuntimeException e) {
-                // RuntimeException is thrown when stop() is called immediately after start().
-                // In this case the output file is not properly constructed ans should be deleted.
-                Log.d(TAG, "RuntimeException: stop() is called immediately after start()");
-                //noinspection ResultOfMethodCallIgnored*/
-            }
-            releaseMediaRecorder(); // release the MediaRecorder object
-            //}
 
         }
-        return null;
+
+
+        Log.i(TAG, "디텍트 페이스 메소드8");
     }
+
+
+    //프레임 전달이 필요한 경우에 호출됨.
     @Override
-    protected void onPostExecute(String s) {
-        super.onPostExecute(s);
-
-    }
-}
-
-  public void  releaseMediaRecorder(){
-
-        if(mMediaRecorder != null){
-            Log.i(TAG, "리리즈 미디어 리코더");
-            mMediaRecorder.reset();
-            mMediaRecorder.release();
-            mMediaRecorder = null;
-
-           // mOpenCvCameraView.disableView();
-            //c.lock 안먹음
-            //JavaCameraView.mCamera.lock();
-   mOpenCvCameraView.releaseRecord();
+    public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
+        matInput = inputFrame.rgba();
+        if (FACEDETECT) {
+            detectFace();
+            ;
+            // Core.flip(matInput, matInput, 1);
+            return matInput;
         }
-  }
 
-  @SuppressLint("NewApi")
-  public boolean prepareVideoRecorder() {
+        if (GrayScale == 1) {
+            matInput = inputFrame.gray();
+        }
+        if (RGBA == 1) {
+            matInput = inputFrame.rgba();
+        }
+        if (HSV == 1) {
+            Imgproc.cvtColor(inputFrame.rgba(), mat1, Imgproc.COLOR_RGB2HSV);
+            //inRange는 그 범위안에 들어가게 되면 0으로 만들어주고, 나머지는 1로 만들어 흑백사진을 만듦.
+            Core.inRange(mat1, scalarLow, scalarHigh, mat2);
+            matInput = mat2;
+        }
+        if (Smoothing == 1) {
+            org.opencv.core.Size size = new Size(21, 21);
+            Imgproc.boxFilter(matInput, matInput, -1, size);
+        }
+        if (ROI == 1)
+            Imgproc.cvtColor(inputFrame.rgba(), mat1, Imgproc.COLOR_RGB2HSV);
+        Core.bitwise_and(matInput, matInput, mat1, mat2);
+        matInput = mat1;
 
-          releaseMediaRecorder();
-         // JavaCameraView.mCamera = getCameraInstance(JavaCameraView.mCamera);
-          Log.i(TAG, "프리페어 메소드 트라이 안에 들어옴");
-          mMediaRecorder = new MediaRecorder();
-
-          JavaCameraView.mCamera.lock();
-          //JavaCameraView.mCamera.unlock();
-
-          //  mMediaRecorder.reset();
-
-          mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-          mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
-     // CamcorderProfile profile = CamcorderProfile.get(CamcorderProfile.QUALITY_HIGH);
-     // mMediaRecorder.setProfile(profile);
-      mMediaRecorder.setProfile(CamcorderProfile
-              .get(CamcorderProfile.QUALITY_720P));
-
-      //mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-          // mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
-          mMediaRecorder.setVideoEncodingBitRate(512 * 1000);
-          mMediaRecorder.setAudioSamplingRate(16000);
-          mMediaRecorder.setVideoFrameRate(30);
-
-          // CamcorderProfile cpHigh = CamcorderProfile.get(CamcorderProfile.QUALITY_HIGH);
-
-          //  mMediaRecorder.setProfile(cpHigh);
-        //  mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-        //  mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.MPEG_4_SP);
-
-         // mMediaRecorder.setOutputFile(Environment.getExternalStorageDirectory() +"/video/"+ "1.mp4");
-
-          Log.i(TAG, "미디어 리코더 프리페어 두번");
-          mMediaRecorder.setVideoSize(mOpenCvCameraView.getWidth(), mOpenCvCameraView.getHeight());
-          Log.i(TAG, "미디어 리코더 프리페어 세본");
-          //  mMediaRecorder.setOnInfoListener((MediaRecorder.OnInfoListener) this);
-          //   mMediaRecorder.setOnErrorListener((MediaRecorder.OnErrorListener) this);
-          mMediaRecorder.setPreviewDisplay(mOpenCvCameraView.getHolder().getSurface());
-          Log.i(TAG, "미디어 리코더 프리페어 네번째");
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-          mMediaRecorder.setOutputFile(getOutputMediaFile());
-          Log.i(TAG, "비디오 파일 저장");
-      }
+        detect(cascadeClassifier_face, cascadeClassifier_eye, matInput.getNativeObjAddr(),
+                matInput.getNativeObjAddr());
 
 
-      // mMediaRecorder.start();
-          try {
-              mMediaRecorder.prepare();
-          } catch (IllegalStateException e) {
-              releaseMediaRecorder();
-              return false;
-          } catch (IOException e) {
-              releaseMediaRecorder();
-              return false;
-          }
-          return true;
-      }
-    public static Camera getCameraInstance(Camera c) {
-        c = null;
+        // Core.flip(matInput, matInput, 1);
+        return matInput;
+    }
+
+    //assets에서 copyfile로 해당 파일을 가져와 외부 저장소의 특정 위치에 저장하도록 구현.
+    private void read_cascade_file() {
+        copyFile("haarcascade_frontalface_alt.xml");
+        copyFile("haarcascade_eye_tree_eyeglasses.xml");
+        //loadCascade 메소드는 외부 저장소의 특정 위치에서 해당 파일을 읽어와서
+
+        //CascadeClassifier 객체로 로드합니다.
+        cascadeClassifier_face = loadCascade("haarcascade_frontalface_alt.xml");
+        Log.d(TAG, "read_cascade_file:");
+
+        cascadeClassifier_eye = loadCascade("haarcascade_eye_tree_eyeglasses.xml");
+    }
+
+    private void copyFile(String filename) {
+        String baseDir = Environment.getExternalStorageDirectory().getPath();
+        String pathDir = baseDir + File.separator + filename;
+
+        AssetManager assetManager = this.getAssets();
+
+        InputStream inputStream = null;
+        OutputStream outputStream = null;
+
         try {
-            c = Camera.open();
+            Log.d(TAG, "copyFile :: 다음 경로로 파일복사 " + pathDir);
+            inputStream = assetManager.open(filename);
+            outputStream = new FileOutputStream(pathDir);
+
+            byte[] buffer = new byte[1024];
+            int read;
+            while ((read = inputStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, read);
+            }
+            inputStream.close();
+            inputStream = null;
+            outputStream.flush();
+            outputStream.close();
+            outputStream = null;
         } catch (Exception e) {
+            Log.d(TAG, "copyFile :: 파일 복사 중 예외 발생 " + e.toString());
         }
-        return c;
     }
 
     //녹화한 동영상 파일 저장
-    public static File getOutputMediaFile() {
+    public File getOutputMediaFile() {
         File mediaStorageDir = new File(
                 Environment
                         .getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
                 "MyCameraApp");
-
+        Log.d("MyCameraApp", "저장");
         if (!mediaStorageDir.exists()) {
+            Log.d("MyCameraApp", "오류");
             if (!mediaStorageDir.mkdirs()) {
                 Log.d("MyCameraApp", "failed to create directory");
                 return null;
@@ -477,11 +549,40 @@ public class recordingTask extends AsyncTask<Void, Void, String>{
 
         String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss")
                 .format(new Date());
-        File mediaFile;
-        mediaFile = new File(mediaStorageDir.getPath() + File.separator
+        File mediaFile = new File(mediaStorageDir.getPath() + File.separator
                 + "VID_" + timeStamp + ".mp4");
 
+        Log.d("MyCameraApp", "리턴");
         return mediaFile;
+        //  return matInput;
+    }
+
+    public void Write(Mat frame) {
+        Log.i(TAG, " 녹화 라이트 메소드 안으로 들어옴");
+        if (isRecording) {
+            Log.i(TAG, " 녹화 라이트 메소드 안으로 들어옴 2");
+            if (!videoCapture.isOpened()) {
+                Size frameSize = new Size(frame_height, frame_width);
+                videoCapture.read(frame);
+                Log.i(TAG, "녹화 비디오 라이터 생성 다음");
+                //videoWriter = new VideoWriter(recordfilepath(), VideoWriter.fourcc('M', 'P', 'E', 'G'), frameSize);
+                Log.i(TAG, "녹화 비디오 캡쳐가 비디오 받음");
+
+                while (videoCapture.read(frame)) {
+                    videoWriter.write(frame);
+                    Log.i(TAG, "비디오라이터 저장");
+                }
+                Log.i(TAG, "비디오라이터 저장 끝");
+                videoCapture.release();
+                Log.i(TAG, "비디오캡쳐 끝");
+                videoWriter.release();
+                Log.i(TAG, "비디오라이터 릴리즈");
+            } else {
+                Log.i(TAG, " 비디오 녹화 라이트 메소드 엘스문");
+            }
+
+
+        }
     }
 
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
@@ -508,7 +609,7 @@ public class recordingTask extends AsyncTask<Void, Void, String>{
             mOpenCvCameraView.disableView();
         //녹화
         Log.i(TAG, "온포우즈 ");
-      releaseMediaRecorder();
+        //releaseMediaRecorder();
 
         ;
     }
@@ -536,64 +637,47 @@ public class recordingTask extends AsyncTask<Void, Void, String>{
     @Override
     public void onCameraViewStarted(int width, int height) {
 
+
     }
 
     //카메라 프리뷰가 어떤 이유로 멈추면 호출.
     @Override
     public void onCameraViewStopped() {
-    }
-
-    //프레임 전달이 필요한 경우에 호출됨.
-    @Override
-    public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
-        matInput = inputFrame.rgba();
-
-        if (GrayScale == 1) {
-            matInput = inputFrame.gray();
-        }
-        if (RGBA == 1) {
-            matInput = inputFrame.rgba();
-        }
-        if (HSV == 1) {
-            Imgproc.cvtColor(inputFrame.rgba(), mat1, Imgproc.COLOR_RGB2HSV);
-            //inRange는 그 범위안에 들어가게 되면 0으로 만들어주고, 나머지는 1로 만들어 흑백사진을 만듦.
-            Core.inRange(mat1, scalarLow, scalarHigh, mat2);
-            matInput = mat2;
-        }
-        if (Smoothing == 1) {
-            org.opencv.core.Size size = new Size(21, 21);
-            Imgproc.boxFilter(matInput, matInput, -1, size);
-        }
-        if (ROI == 1) {
-            Imgproc.cvtColor(inputFrame.rgba(), mat1, Imgproc.COLOR_RGB2HSV);
-            Core.bitwise_and(matInput, matInput, mat1, mat2);
-            matInput = mat1;
-            Core.flip(matInput, matInput, 1);
-
-            if(isRecording){
-                Log.i(TAG, " 온카메라프레임 안");
-                write(matInput);
-            }
-
-        }
-        return matInput;
-
 
 
     }
 
-    public void write(Mat mat){
+    private String recordfilepath() {
+        Log.i(TAG, "레코드 파일패스로 들어옴");
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss")
+                .format(new Date());
+
+
+        File sddir = new File(Environment.getExternalStorageDirectory() + "/video/");
+        sddir.mkdirs();
+        // File vrdir = new File(sddir, "Myvideo");
+
+        File file = new File(sddir, "KLI_" + timeStamp + "savedVideo.avi");
+        String filepath = file.toString();
+        //  Boolean bool = Imgcodecs.imwrite(filepath, matInput);
+        Log.e("debug mediarecorder", filepath);
+        return filepath;
+    }
+
+
+    public void write(Mat mat) {
 
         //convert from BGR to RGB
         Mat rgbMat = new Mat();
         Imgproc.cvtColor(mat, rgbMat, Imgproc.COLOR_BGR2RGB);
 
-        File file = new File(dir, "img" + imageIndex + ".png");
+        File file = new File(dir, "img" + imageIndex + ".mp4");
 
         String filename = file.toString();
         boolean success = Imgcodecs.imwrite(filename, rgbMat);
+        // boolean success = MediaCodec.createDecoderByType()
 
-        Log.i(TAG, "Success writing img" + imageIndex +".png: " + success);
+        Log.i(TAG, "Success writing img" + imageIndex + ".mp4: " + success);
 
         imageIndex++;
     }
@@ -613,6 +697,8 @@ public class recordingTask extends AsyncTask<Void, Void, String>{
         for (CameraBridgeViewBase cameraBridgeViewBase : cameraViews) {
             if (cameraBridgeViewBase != null) {
                 cameraBridgeViewBase.setCameraPermissionGranted();
+
+                read_cascade_file();
             }
         }
     }
@@ -622,8 +708,8 @@ public class recordingTask extends AsyncTask<Void, Void, String>{
         super.onStart();
         boolean havePermission = true;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (checkSelfPermission(CAMERA) != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(new String[]{CAMERA}, CAMERA_PERMISSION_REQUEST_CODE);
+            if (checkSelfPermission(CAMERA) != PackageManager.PERMISSION_GRANTED || checkSelfPermission(WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{CAMERA, WRITE_EXTERNAL_STORAGE}, CAMERA_PERMISSION_REQUEST_CODE);
                 havePermission = false;
             }
         }
@@ -636,7 +722,7 @@ public class recordingTask extends AsyncTask<Void, Void, String>{
     @TargetApi(Build.VERSION_CODES.M)
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         if (requestCode == CAMERA_PERMISSION_REQUEST_CODE && grantResults.length > 0
-                && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                && grantResults[0] == PackageManager.PERMISSION_GRANTED && grantResults[1] == PackageManager.PERMISSION_GRANTED) {
             onCameraPermissionGranted();
         } else {
             showDialogForPermission("앱을 실행하려면 퍼미션을 허가하셔야합니다.");
@@ -653,7 +739,7 @@ public class recordingTask extends AsyncTask<Void, Void, String>{
         builder.setCancelable(false);
         builder.setPositiveButton("예", new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int id) {
-                requestPermissions(new String[]{CAMERA}, CAMERA_PERMISSION_REQUEST_CODE);
+                requestPermissions(new String[]{CAMERA, WRITE_EXTERNAL_STORAGE}, CAMERA_PERMISSION_REQUEST_CODE);
             }
         });
         builder.setNegativeButton("아니오", new DialogInterface.OnClickListener() {

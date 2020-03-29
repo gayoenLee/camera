@@ -105,7 +105,8 @@
      android:layout_marginLeft="141dp"
      android:layout_marginBottom="0dp"
      android:layout_toRightOf="@+id/magic_effect_btn"
-     android:src="@drawable/ic_videocam_black_24dp" />
+     android:background="@null"
+     android:src="@drawable/ic_video_call_black_24dp" />
 
  <ImageButton
      android:id="@+id/magic_effect_btn"

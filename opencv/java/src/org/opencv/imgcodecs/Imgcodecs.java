@@ -76,6 +76,7 @@ public class Imgcodecs {
             IMWRITE_PNG_STRATEGY_HUFFMAN_ONLY = 2,
             IMWRITE_PNG_STRATEGY_RLE = 3,
             IMWRITE_PNG_STRATEGY_FIXED = 4;
+    public static final int CV_LOAD_IMAGE_GRAYSCALE = 5;
 
 
     //

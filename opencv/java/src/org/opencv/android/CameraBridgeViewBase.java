@@ -1,12 +1,5 @@
 package org.opencv.android;
 
-import java.util.List;
-
-import org.opencv.BuildConfig;
-import org.opencv.R;
-import org.opencv.core.Mat;
-import org.opencv.core.Size;
-
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
@@ -16,12 +9,20 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
+import android.hardware.Camera;
 import android.media.MediaRecorder;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+
+import org.opencv.BuildConfig;
+import org.opencv.R;
+import org.opencv.core.Mat;
+import org.opencv.core.Size;
+
+import java.util.List;
 
 /**
  * This is a basic class, implementing the interaction with Camera and OpenCV library.
@@ -62,6 +63,8 @@ public abstract class CameraBridgeViewBase extends SurfaceView implements Surfac
 
     protected MediaRecorder mMediaRecorder;
     protected Surface surface = null;
+    protected SurfaceHolder surfaceHolder;
+    protected  Camera camera;
 
     public CameraBridgeViewBase(Context context, int cameraId) {
         super(context);
@@ -99,22 +102,31 @@ public abstract class CameraBridgeViewBase extends SurfaceView implements Surfac
 
     public abstract void takePicture(String fileName);
 
-    public void releaseRecord(){
-        surface.release();
-    }
+
 
     public void setRecorder(MediaRecorder recorder) {
         mMediaRecorder = recorder;
 
         if(mMediaRecorder != null){
             surface = mMediaRecorder.getSurface();
+            Log.i(TAG, "셋리코더 확인");
         }else{
+            Log.i(TAG, "셋 리코더 엘스");
 
         }
+    }
+    public void releaseRecord(){
+        surface.release();
     }
 
     public MediaRecorder getRecorder() {
         return mMediaRecorder;
+    }
+
+    public abstract Surface surfaceCreated();
+
+    public static Surface createPersistentInputSurface(Surface surface) {
+        return surface;
     }
 
     public interface CvCameraViewListener {
@@ -223,6 +235,8 @@ public abstract class CameraBridgeViewBase extends SurfaceView implements Surfac
             if (!mSurfaceExist) {
                 mSurfaceExist = true;
                 checkCurrentState();
+
+
             } else {
                 /** Surface changed. We need to stop camera and restart with new parameters */
                 /* Pretend that old surface has been destroyed */
@@ -231,12 +245,33 @@ public abstract class CameraBridgeViewBase extends SurfaceView implements Surfac
                 /* Now use new surface. Say we have it now */
                 mSurfaceExist = true;
                 checkCurrentState();
+               // refreshCamera(camera);
+
             }
         }
     }
 
+    public void refreshCamera(Camera camera){
+        if(surfaceHolder.getSurface() == null){
+            return;
+        }
+        try{
+     camera.stopPreview();
+        }catch (Exception e){
+            Log.i(TAG, "리프레쉬카메라 오류"+e.getMessage());
+        }
+        setCamera(camera);
+    }
+
+    private void setCamera(Camera cam){
+
+        camera = cam;
+
+    }
+
     public void surfaceCreated(SurfaceHolder holder) {
         /* Do nothing. Wait until surfaceChanged delivered */
+
     }
 
     public void surfaceDestroyed(SurfaceHolder holder) {
@@ -358,7 +393,7 @@ public abstract class CameraBridgeViewBase extends SurfaceView implements Surfac
 
     private void processEnterState(int state) {
         Log.d(TAG, "call processEnterState: " + state);
-       /* switch(state) {
+        switch(state) {
         case STARTED:
             onEnterStartedState();
             if (mListener != null) {
@@ -371,9 +406,9 @@ public abstract class CameraBridgeViewBase extends SurfaceView implements Surfac
                 mListener.onCameraViewStopped();
             }
             break;
-        };*/
+        };
         /* Connect camera */
-        if (!connectCamera(getWidth(), getHeight())) {
+ /*       if (!connectCamera(getWidth(), getHeight())) {
             AlertDialog ad = new AlertDialog.Builder(getContext()).create();
             ad.setCancelable(false); // This blocks the 'BACK' button
             ad.setMessage("It seems that you device does not support camera (or it is locked). Application will be closed.");
@@ -385,7 +420,7 @@ public abstract class CameraBridgeViewBase extends SurfaceView implements Surfac
             });
             ad.show();
 
-        }
+        }*/
     }
 
     private void processExitState(int state) {
@@ -463,8 +498,10 @@ public abstract class CameraBridgeViewBase extends SurfaceView implements Surfac
         }
 
         if (bmpValid && mCacheBitmap != null) {
-            Canvas canvas = getHolder().lockCanvas();
+            Canvas canvas= getHolder().lockCanvas();
             if (canvas != null) {
+                //추가함
+              //  canvas = surface.lockCanvas(null);
                 canvas.drawColor(0, PorterDuff.Mode.CLEAR);
                 if (BuildConfig.DEBUG)
                     Log.d(TAG, "mStretch value: " + mScale);
@@ -488,6 +525,7 @@ public abstract class CameraBridgeViewBase extends SurfaceView implements Surfac
                     mFpsMeter.draw(canvas, 20, 30);
                 }
                 getHolder().unlockCanvasAndPost(canvas);
+               // surface.unlockCanvasAndPost(canvas);
             }
         }
     }

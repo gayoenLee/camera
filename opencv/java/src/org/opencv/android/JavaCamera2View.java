@@ -68,6 +68,11 @@ public class JavaCamera2View extends CameraBridgeViewBase {
 Log.i("테이크픽쳐", "테이크픽쳐");
     }
 
+    @Override
+    public Surface surfaceCreated() {
+        return null;
+    }
+
     private void startBackgroundThread() {
         Log.i(LOGTAG, "startBackgroundThread");
         stopBackgroundThread();

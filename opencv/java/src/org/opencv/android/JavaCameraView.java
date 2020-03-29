@@ -10,6 +10,7 @@ import android.hardware.Camera.PreviewCallback;
 import android.os.Build;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.view.Surface;
 import android.view.ViewGroup.LayoutParams;
 
 import org.opencv.BuildConfig;
@@ -70,6 +71,11 @@ public class JavaCameraView extends CameraBridgeViewBase implements PreviewCallb
     @Override
     public void takePicture(String fileName) {
 Log.i("자바카메라뷰", "테이크픽쳐");
+    }
+
+    @Override
+    public Surface surfaceCreated() {
+        return null;
     }
 
     protected boolean initializeCamera(int width, int height) {

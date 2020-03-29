@@ -20,6 +20,8 @@ include_directories(${pathOPENCV}/native/jni/include)
 # You can define multiple libraries, and CMake builds them for you.
 # Gradle automatically packages shared libraries with your APK.
 
+
+
 add_library( # Sets the name of the library.
         native-lib
 
@@ -55,8 +57,13 @@ find_library( android-lib android)
 
 target_link_libraries( # Specifies the target library.
         native-lib
-
+        ${android-lib}
         lib_opencv
+
+
+
+
+
 
         # Links the target library to the log library
         # included in the NDK.
