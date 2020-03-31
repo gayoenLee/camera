@@ -7,6 +7,7 @@ import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.media.MediaRecorder;
 import android.os.Build;
 import android.os.Bundle;
@@ -30,6 +31,7 @@ import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.FpsMeter;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
+import org.opencv.android.Utils;
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfRect;
@@ -45,9 +47,11 @@ import org.opencv.videoio.VideoWriter;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -56,6 +60,7 @@ import static android.Manifest.permission.CAMERA;
 import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
 import static org.opencv.imgproc.Imgproc.circle;
 import static org.opencv.imgproc.Imgproc.ellipse;
+import static org.opencv.imgproc.Imgproc.resize;
 
 public class MainActivity extends AppCompatActivity
         implements CameraBridgeViewBase.CvCameraViewListener2 {
@@ -112,22 +117,32 @@ public class MainActivity extends AppCompatActivity
     int videoLength;
     int frameNumber;
     int framePerSecond;
-
     int frame_width;
-
     int frame_height;
+    //얼굴 검출
     private boolean FACEDETECT = false;
+    //얼굴에 마스크 씌우기 위해 선언한 변수
+    Mat src_roi;
+    Mat roi_gray;
+    Mat roi_rgb;
+    Rect roi;
+ //private String  glassesImage = "glasses.png";
+
+    private Mat glasses;
+    Mat outputSecond;
+    Mat result;
 
     //회색
     // public native void ConvertRGBtoGray(long matAddrInput, long matAddrResult);
 
 
-    public native long loadCascade(String cascadeFileName);
+    /*public native long loadCascade(String cascadeFileName);
 
-    public native int detect(long cascadeClassifier_face,
+   public native int detect(long cascadeClassifier_face,
 
                              long cascadeClassifier_eye, long matAddrInput, long matAddrResult);
 
+*/
     public long cascadeClassifier_face = 0;
     public long cascadeClassifier_eye = 0;
 
@@ -184,19 +199,15 @@ public class MainActivity extends AppCompatActivity
         mat2 = new Mat();
         //녹화
         videoCapture = new VideoCapture(0);
-
         //녹화 기능
         videoBtn.setOnClickListener(new View.OnClickListener() {
                                         @Override
                                         public void onClick(View v) {
                                             Log.i(TAG, "얼굴 인식 시작 버튼 클릭");
                                             FACEDETECT = true;
-
-
                                         }
                                     }
         );
-
         //필터 선택 버튼
         makeFilterBtn.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -337,128 +348,309 @@ public class MainActivity extends AppCompatActivity
         });
     }
 
-   /* private void detectFace(){
+    public Mat detectFace(Mat matInput) {
+//씌우는 이미지 가져오기
+        try {
+            InputStream is = getAssets().open("glasses.png");
+            Bitmap bitmap = BitmapFactory.decodeStream(is);
+
+            glasses  = new Mat();
+            Utils.bitmapToMat(bitmap, glasses);
+        } catch (IOException e) {
+            Log.i(TAG, "이미지 가져오기 실패 : "+ e.getMessage());
+        }
         Log.i(TAG, "얼굴과 눈 검출하기 위해 학습시켜 놓은 분류기 로드");
         CascadeClassifier cascadeClassifier = new CascadeClassifier();
-        if(cascadeClassifier.empty()){
-            Log.i(TAG, "디텍트 페이스 메소드2");
+        CascadeClassifier cascadeClassifierEye = new CascadeClassifier();
+
+        if (cascadeClassifier.empty()) {
+            Log.i(TAG, "얼굴 검출 파일 없어서 가져오기");
             String path = Environment.getExternalStorageDirectory().getAbsolutePath();
-            cascadeClassifier.load(path + "/haarcascade_frontalface_alt.xml");
-            cascadeClassifier.load(path + "/haarcascade_eye_tree_eyeglasses.xml");
-        }
-        if(cascadeClassifier.empty()){
-            Log.i(TAG, "디텍트 페이스 메소드3");
-            return;
+            cascadeClassifier.load(path + "/haarcascade_frontalface_alt.xml"); }
+
+        if (cascadeClassifier.empty()) {
+            Log.i(TAG, "얼굴 검출 파일 없음");
+            return null;
         }
         Log.i(TAG, "얼굴 검출할 그레이스케일 이미지 준비.");
+        Mat mRgba = new Mat();
         Mat gray = new Mat();
-        Mat resizingGray = new Mat();
-        Imgproc.cvtColor(matInput, gray, Imgproc.COLOR_BGRA2GRAY);
-        Log.i(TAG, "디텍트 페이스 메소드4");
-        Imgproc.resize(gray, resizingGray,  new Size(1280, 900) );
+        MatOfRect faces = new MatOfRect();
+
+        matInput.copyTo(mRgba);
+        matInput.copyTo(gray);
+
+        Imgproc.cvtColor(mRgba, gray, Imgproc.COLOR_BGRA2GRAY);
+        //equalizeHists
+        Imgproc.equalizeHist(gray, gray);
+        cascadeClassifier.detectMultiScale(gray, faces, 1.1, 2, 0, new Size(30, 30), new Size());
+
+        Log.i(TAG, "그레이 이미지 리사이즈 하기");
+       // resize(gray, resizingGray, new Size(1920, 1080));
 
         Log.i(TAG, "MatOfRect : Mat를 상속받아 만들어진 클래스.");
-        MatOfRect faces = new MatOfRect();
         Log.i(TAG, "이미지에서 얼굴 검출");
-        cascadeClassifier.detectMultiScale(resizingGray, faces, 3, 2, 0, new Size(60, 60));
-
-        Log.i(TAG, "디텍트 페이스 메소드7");
-        for(int i=0; i<faces.total(); i++){
-            Log.i(TAG, "얼굴 이미지들 포문 안에서 검출");
-            Rect rc = faces.toList().get(i);
-            rc.x += 3;
-            rc.y += 3;
-            rc.width += 3;
-            rc.height += 3;
-            rectangle(matInput, rc, new Scalar(255, 50, 100), 2);
-      //검출한 입들 배열
-       Mat faceROI = resizingGray.submat(rc);
-            MatOfRect eyes = new MatOfRect();
-
-       cascadeClassifier.detectMultiScale(faceROI, eyes, 1.1, 2, 0, new Size(30, 30));
-     //  Rect[] eyesArray = eyes.toArray();
-       for(int j=0; j<eyes.total(); j++){
-           Rect eyeRect = eyes.toList().get(i);
-           eyeRect.x +=1.1;
-           eyeRect.y += 1.1;
-           eyeRect.width += 1.1;
-           eyeRect.height += 1.1;
-
-           int radius = (int)Math.round((eyeRect.width + eyeRect.height)*0.25);
-         // Imgproc.circle(matInput, eyeRect, raduius, new Scalar(255, 202, 121), 4, 8, 0);
-       }
-        }
-
-
-
-        Log.i(TAG, "디텍트 페이스 메소드8");
-    }*/
-
-    private void detectFace() {
-        Log.i(TAG, "얼굴과 눈 검출하기 위해 학습시켜 놓은 분류기 로드");
-        CascadeClassifier cascadeClassifier = new CascadeClassifier();
-        if (cascadeClassifier.empty()) {
-            Log.i(TAG, "디텍트 페이스 메소드2");
-            String path = Environment.getExternalStorageDirectory().getAbsolutePath();
-            cascadeClassifier.load(path + "/haarcascade_frontalface_alt.xml");
-            cascadeClassifier.load(path + "/haarcascade_eye_tree_eyeglasses.xml");
-        }
-        if (cascadeClassifier.empty()) {
-            Log.i(TAG, "디텍트 페이스 메소드3");
-            return;
-        }
-        Log.i(TAG, "얼굴 검출할 그레이스케일 이미지 준비.");
-        Mat gray = new Mat();
-        Mat resizingGray = new Mat();
-        Imgproc.cvtColor(matInput, gray, Imgproc.COLOR_BGRA2GRAY);
-        Log.i(TAG, "디텍트 페이스 메소드4");
-        Imgproc.resize(gray, resizingGray, new Size(1920, 1080));
-
-        Log.i(TAG, "MatOfRect : Mat를 상속받아 만들어진 클래스.");
-        MatOfRect faces = new MatOfRect();
-        Log.i(TAG, "이미지에서 얼굴 검출");
-        cascadeClassifier.detectMultiScale(resizingGray, faces, 1.1, 2, 0, new Size(30, 30));
+                                        //검출되려는 원본 이미지, 오브젝트에 검출된 이미지가 채워짐, 이미지 피라미드에서 사용되는 스케일팩터
+        cascadeClassifier.detectMultiScale(gray, faces, 1.1, 2, 0, new Size(30, 30));
         Rect[] facesArray = faces.toArray();
 
-        Log.i(TAG, "디텍트 페이스 메소드7");
+        Log.i(TAG, "얼굴 배열 만듦");
         for (int i = 0; i < facesArray.length; i++) {
+
             Log.i(TAG, "얼굴 이미지들 포문 안에서 검출");
             //point
             Point centre1 = new Point(facesArray[i].x + facesArray[i].width * 0.5,
                     facesArray[i].y + facesArray[i].height * 0.5);
-            //ellipse
-            ellipse(matInput, centre1, new Size(facesArray[i].width * 0.5, facesArray[i].height * 0.5), 0, 0, 360,
-                    new Scalar(255, 0, 255), 4, 8, 0);
+            Log.i(TAG, "얼굴 갯수 : "+ facesArray.length);
+            //타원 그리기
+           ellipse(matInput, centre1, new Size(facesArray[i].width * 0.5, facesArray[i].height * 0.5), 0, 0, 360,
+                   new Scalar(255, 0, 255), 4, 8, 0);
 
             Mat faceROI = gray.submat(facesArray[i]);
-//검출한 눈 배열
             MatOfRect eyes = new MatOfRect();
-            cascadeClassifier.detectMultiScale(faceROI, eyes, 2, 2, 0, new Size(30, 30));
+
+            if (cascadeClassifier.empty()) {
+                Log.i(TAG, "얼굴 검출 파일 없음");
+                return null;
+            }
+            if (cascadeClassifierEye.empty()) {
+                Log.i(TAG, "눈 검출 위한 파일 가져오기");
+                String path = Environment.getExternalStorageDirectory().getAbsolutePath();
+                cascadeClassifierEye.load(path + "/haarcascade_eye_tree_eyeglasses.xml");
+            }
+            if (cascadeClassifierEye.empty()) {
+                Log.i(TAG, "눈 검출 파일 없음");
+                return null;
+            }
+//검출한 눈 배열
+           cascadeClassifierEye.detectMultiScale(faceROI, eyes, 1.1, 4, 0, new Size(30, 30));
+Log.i(TAG, "눈 검출 디텍트 멀티 스케일 메소드하기");
 
             Rect[] eyesArray = eyes.toArray();
-            for (int j = 0; j < eyesArray.length; j++) {
+            for (int j = 0; j <eyesArray.length; j++) {
+
                 Point centre2 = new Point(facesArray[i].x + eyesArray[j].x + eyesArray[j].width * 0.5,
                         facesArray[i].y + eyesArray[j].y + eyesArray[j].height * 0.5);
+                //원 반지름
                 int radius = (int) Math.round((eyesArray[j].width + eyesArray[j].height) * 0.25);
+                //원이 그려질 이미지, 원의 중심 좌표, 원의 반지름, 원의 색, 선 굵기, 디폴트값8(선 타입), 디폴트값 0(shift)
                 circle(matInput, centre2, radius, new Scalar(255, 0, 0), 4, 8, 0);
             }
+            //----------------------------------여기까지 얼굴,눈 인식-------------------------------------------
 
+                Log.i( "오버레이 메소드", "눈 위치가 2개 이상 갯수 확인 : "+ eyesArray.length);
+                //눈 위치가 2개로 검출된 경우 x좌표 기준으로 정렬.
+                if (eyesArray.length== 2) {
+                    Point centerFirst = new Point(facesArray[i].x + eyesArray[0].x + eyesArray[0].width * 0.5,
+                            facesArray[i].y + eyesArray[0].y + eyesArray[0].height * 0.5);
+                    Point centerSecond = new Point(facesArray[i].x + eyesArray[1].x + eyesArray[1].width * 0.5,
+                            facesArray[i].y + eyesArray[1].y + eyesArray[1].height * 0.5);
+
+                    //예외처리 한 것
+                    if (centerFirst.x > centerSecond.x) {
+                        Point temporary;
+                        temporary = centerFirst;
+                        centerFirst = centerSecond;
+                        centerSecond = temporary;
+                    }
+                    Log.i(TAG, "첫번째 눈 위치 정한 값 확인 : "+  centerFirst.x);
+                    Log.i(TAG, "눈 위치 정한 두번째 값 확인 : " + centerSecond.x);
+
+                    //눈 위치가 아닌 경우를 필터링하기 위해 가로 길이와 세로 길이로 판정.
+                    int width = (int) Math.abs(centerSecond.x - centerFirst.x);
+                    int height = (int) Math.abs(centerSecond.y - centerFirst.y);
+
+                    Log.i(TAG, " 처음 넓이 값 확인 : "+ width);
+                    Log.i(TAG, "처음 높이 값 확인 : "+ height);
+                    if (width > height) {
+                        //눈 사이 간격과 안경알 사이 간격 비율 계산
+                        float imageScale = (float) (width / 330.0);
+                                Log.i(TAG, " 처음 이미지 스케일 확인 : "+ imageScale);
+
+                        //계산한 비율로 안경 크기 조정
+                        int glassSizeWidth, glassSizeHeight;
+
+                        glassSizeWidth = (int) (glasses.cols() * imageScale);
+                        Log.i(TAG, " 조정된 안경 넓이 확인 : "+ glassSizeWidth);
+                        glassSizeHeight = (int) (glasses.rows() * imageScale);
+                        Log.i(TAG, " 조정된 안경 높이 확인 : "+ glassSizeHeight);
+                        //오른쪽 안경알의 중심좌표로 안경의 위치를조정할 때 사용.
+                        int offsetX = (int) (150 * imageScale);
+                        int offsetY = (int) (160 * imageScale);
+                        Log.i(TAG, " 눈 위치가 아닌 경우 예외처리");
+                        //안경 이미지를 달라지는 얼굴 크기에 맞춰 비율 조정하기
+                        Mat resized_glasses = new Mat();
+                        Imgproc.resize(glasses, resized_glasses, new Size(glassSizeWidth, glassSizeHeight), 0, 0);
+                       Log.i(TAG, " 조정된 안경 넓이어야 하는 값 : "+ glassSizeWidth);
+                        Log.i(TAG, "조정된 안경 확인 : "+resized_glasses.width());
+
+                        //얼굴 이미지에 안경 이미지를 오버랩
+                        outputSecond = new Mat();
+                        faceROI.copyTo(outputSecond);
+
+                        Log.i("오버레이 메소드", "메소드 전");
+                        Log.i(TAG, "오버레이 포인트 Y값 확인 : "+ centerFirst.y+ offsetY );
+                        Log.i(TAG, "오버레이 포인트 X값 확인 : "+ centerFirst.x + offsetX);
+
+                       //얼굴 이미지, 안경 이미지, 얼굴+안경 이미지 리턴됨, 안경을 위치할 좌표
+                       overlayImage(outputSecond, resized_glasses, result, new Point(centerFirst.x - offsetX, centerFirst.y - offsetY));
+                         outputSecond = result;
+
+                      /* if ( result == null ) {
+                           Log.i(TAG, "리절트가 널값일 때 ");
+                           result = new Mat( matInput.rows(), matInput.cols(), matInput.type());
+                       }*/
+                        Log.i(TAG, "리절트가 널값아님  ");
+                }
+
+            }
         }
+        return matInput;
+    }
+    //새거 ,조정된안경크기,새거 ,위
+    public static void overlayImage(Mat background,Mat foreground,Mat output, Point location){
+        Log.i("오버레이 메소드", "안으로 들어옴");
+        output = new Mat();
 
+        background.copyTo(output);
+        // start at the row indicated by location, or at row 0 if location.y is negative.
+        Log.i(TAG, " 오버레이 백그라운도 rows확인 : "+ background.rows());
+        Log.i(TAG, " 오버레이 포그라운드 rows확인 : "+ foreground.rows());
+        Log.i(TAG, " 오버레이에서 받은 location.y"+location.y);
+        Log.i(TAG, "오버레이 에서 받은 location.x "+ location.x);
 
-        Log.i(TAG, "디텍트 페이스 메소드8");
+        for(int y = (int) Math.max(location.y , 0); y < background.rows(); ++y){
+// because of the translation
+            int fY = (int) (y - location.y);
+            Log.i(TAG, "오버레이 메소드 fY 확인 : "+fY);
+            if(fY >= foreground.rows()) {
+                break;
+            }
+            // start at the column indicated by location,
+// or at column 0 if location.x is negative.
+            Log.i(TAG, " 오버레이 백그라운도  cols확인 : "+ background.cols());
+            Log.i(TAG, "오버레이 메소드 location.x : "+ location.x);
+            for(int x = (int) Math.max(location.x, 0); x < background.cols(); ++x){
+                // because of the translation.
+                int fX = (int) (x - location.x);
+                Log.i(TAG, "오버레이 메소드 fX 확인 : "+fX);
+
+                // we are done with this row if the column is outside of the foreground image.
+                if(fX >= foreground.cols()){
+                    break;
+                }
+
+                // determine the opacity of the foregrond pixel, using its fourth (alpha) channel.
+                double opacity ;
+                double[] finalPixelValue = new double[4];
+                opacity= foreground.get(fY , fX)[3]/255;
+                Log.i(TAG, " 오버레이 백그라운도 opcity확인 : "+ opacity);
+
+                finalPixelValue[0] = background.get(y, x)[0];
+                Log.i(TAG, " 오버레이 백그라운도 파이널픽셀밸류 첫번째: "+ finalPixelValue[0]);
+                finalPixelValue[1] = background.get(y, x)[1];
+                Log.i(TAG, " 오버레이 백그라운도 파이널픽셀밸류 번째: "+ finalPixelValue[1]);
+                finalPixelValue[2] = background.get(y, x)[2];
+                Log.i(TAG, " 오버레이 백그라운도 파이널픽셀밸류 번째: "+ finalPixelValue[2]);
+                finalPixelValue[3] = background.get(y, x)[3];
+                Log.i(TAG, " 오버레이 백그라운도 파이널픽셀밸류 세번째: "+ finalPixelValue[3]);
+
+                // and now combine the background and foreground pixel, using the opacity,
+                for(int c = 0;  c < output.channels(); ++c){
+                    Log.i(TAG, " 오버레이 아웃풋채널 포문 들어옴  ");
+                    if(opacity > 0){
+                        double foregroundPx =  foreground.get(fY, fX)[c];
+                        Log.i(TAG, " 오버레이 아웃풋채널 foregroundPx : "+ foregroundPx);
+                        double backgroundPx =  background.get(y, x)[c];
+                        Log.i(TAG, " 오버레이 아웃풋채널 backgroundPx: "+ backgroundPx);
+                        float fOpacity = (float) (opacity / 255);
+                        Log.i(TAG, " 오버레이 아웃풋채널 fOpacity 확인: "+ fOpacity);
+                        finalPixelValue[c] = ((backgroundPx * ( 1.0 - fOpacity)) + (foregroundPx * fOpacity));
+                        if(c==3){
+                            finalPixelValue[c] = foreground.get(fY,fX)[3];
+                        }
+                    }
+                }
+                output.put(y, x, finalPixelValue);
+            }
+        }
     }
 
+    public Mat putMask(Mat src, Point center, Size face_size) {
 
+        //마스크 사이즈 조정
+        Mat mask_resized = new Mat();
+        //
+        src_roi = new Mat();
+        roi_gray = new Mat();
+
+        resize(glasses, mask_resized, face_size);
+
+        //관심 영역
+        //이미지 씌울 roi영역 설정(사람 얼굴)////////눈 영역 어떻게 보는지
+        roi = new Rect((int)(center.x - face_size.width/2), (int)(center.y - face_size.height/2), (int)face_size.width, (int)face_size.height);
+
+        src.submat(roi).copyTo(src_roi);
+
+        //하얀 영역을 투명하게 하기 위해 설정.
+        Mat mask_grey = new Mat();
+        //선글라스 결과 이미지
+        roi_rgb = new Mat();
+        //검정색과 흰색으로 색칠. 넣어줄 이미지를 그레이 레벨로 읽어서 나중에 마스크로 사용.
+        //make binary images for masking background and foreground images
+        Imgproc.cvtColor(mask_resized, mask_resized, Imgproc.COLOR_BGRA2GRAY);
+        //make binary
+        Imgproc.threshold(mask_grey, mask_grey, 230, 255, Imgproc.THRESH_BINARY_INV);
+
+        //마스크 채널 4개 배열 선언(rgba)
+        //결과 마스크 4개 배열 만들어서 각각 mat넣음 만듦.
+        ArrayList<Mat> maskChannels = new ArrayList<>(4);
+        ArrayList<Mat> result_mask = new ArrayList<>(4);
+        result_mask.add(new Mat());
+        result_mask.add(new Mat());
+        result_mask.add(new Mat());
+        result_mask.add(new Mat());
+
+        //4채널을 가진 mask_resized를 split해서 각각의 싱글 채널을 maskchannels에 닮음.
+        Core.split(mask_resized, maskChannels);
+        //OpenCV 함수: bitwise_and(이미지1, 이미지2, 결과, 마스크)..이미지2가 흑백이미지일경우 이미지2의 흰색부분만 출력
+        //비트연산. 이미지에서 특정 영역을 추출할 때 유용하게 사용.
+        //mask가 검정색이 아닌 경우만 통과가 되기때문에 mask영역 이외는 모두 제거됨.
+        Core.bitwise_and(maskChannels.get(0),mask_grey, result_mask.get(0));
+        Core.bitwise_and(maskChannels.get(1),mask_grey, result_mask.get(1));
+        Core.bitwise_and(maskChannels.get(2),mask_grey, result_mask.get(2));
+        Core.bitwise_and(maskChannels.get(3),mask_grey, result_mask.get(3));
+        //싱글 채널이 담긴 배열인 result_mask를 roi_gray에 담음.
+        Core.merge(result_mask, roi_gray);
+
+        //not은 색이 반대로 나타나는 것.
+        Core.bitwise_not(mask_grey,mask_grey);
+
+        //4개의 채널을 담을 배열 선언.
+        ArrayList<Mat> srcChannels = new ArrayList<>(4);
+        //4개 채널 가진 src_roi를 split해서 각 싱글 채널을 소스 채널에 담음.
+        Core.split(src_roi, srcChannels);
+        Core.bitwise_and(srcChannels.get(0),mask_grey, result_mask.get(0));
+        Core.bitwise_and(srcChannels.get(1),mask_grey, result_mask.get(1));
+        Core.bitwise_and(srcChannels.get(2),mask_grey, result_mask.get(2));
+        Core.bitwise_and(srcChannels.get(3),mask_grey, result_mask.get(3));
+
+        Core.merge(result_mask, roi_rgb);
+
+        Core.addWeighted(roi_gray,1, roi_rgb,1,0, roi_rgb);
+
+        roi_rgb.copyTo(new Mat(src,roi));
+
+
+        return src;
+    }
     //프레임 전달이 필요한 경우에 호출됨.
     @Override
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
         matInput = inputFrame.rgba();
         if (FACEDETECT) {
-            detectFace();
-            ;
-            // Core.flip(matInput, matInput, 1);
-            return matInput;
+            detectFace(matInput);
+return matInput;
         }
 
         if (GrayScale == 1) {
@@ -482,9 +674,9 @@ public class MainActivity extends AppCompatActivity
         Core.bitwise_and(matInput, matInput, mat1, mat2);
         matInput = mat1;
 
-        detect(cascadeClassifier_face, cascadeClassifier_eye, matInput.getNativeObjAddr(),
+       /* detect(cascadeClassifier_face, cascadeClassifier_eye, matInput.getNativeObjAddr(),
                 matInput.getNativeObjAddr());
-
+*/
 
         // Core.flip(matInput, matInput, 1);
         return matInput;
@@ -497,10 +689,10 @@ public class MainActivity extends AppCompatActivity
         //loadCascade 메소드는 외부 저장소의 특정 위치에서 해당 파일을 읽어와서
 
         //CascadeClassifier 객체로 로드합니다.
-        cascadeClassifier_face = loadCascade("haarcascade_frontalface_alt.xml");
+       // cascadeClassifier_face = loadCascade("haarcascade_frontalface_alt.xml");
         Log.d(TAG, "read_cascade_file:");
 
-        cascadeClassifier_eye = loadCascade("haarcascade_eye_tree_eyeglasses.xml");
+        //cascadeClassifier_eye = loadCascade("haarcascade_eye_tree_eyeglasses.xml");
     }
 
     private void copyFile(String filename) {

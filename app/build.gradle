@@ -3,7 +3,9 @@ apply plugin: 'com.android.application'
 android {
     compileSdkVersion 29
     buildToolsVersion "29.0.3"
-
+    aaptOptions {
+        noCompress 'png'
+    }
     defaultConfig {
         applicationId "com.gayeon.yourcamera"
         minSdkVersion 21
