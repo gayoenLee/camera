@@ -111,10 +111,26 @@
         android:layout_toRightOf="@+id/glasses"
         android:layout_alignBottom="@+id/glasses"
         android:visibility="gone"/>
+<Button
+    android:id="@+id/catBlusher"
+    android:layout_width="60dp"
+    android:layout_height="60dp"
+    android:text="블러셔"
+     android:layout_toRightOf="@+id/mustache"
+    android:layout_alignBottom="@+id/mustache"
+    android:visibility="gone"
+    />
+    <Button
+        android:id="@+id/bearWithGlasses"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:text="곰돌이"
+        android:layout_toRightOf="@+id/catBlusher"
+        android:layout_alignBottom="@+id/catBlusher"
+        android:visibility="gone"/>
+    
 
-
-
- <ImageButton
+    <ImageButton
      android:id="@+id/magic_effect_btn"
      android:layout_width="60dp"
      android:layout_height="60dp"
