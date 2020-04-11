@@ -128,6 +128,7 @@ public class MainActivity extends AppCompatActivity
     //private String  glassesImage = "glasses.png";
 
     private Mat glasses;
+    private Mat mustache;
     Mat outputSecond;
     Mat result;
     Mat matThrid;
@@ -135,6 +136,7 @@ public class MainActivity extends AppCompatActivity
 
     ImageView testImage;
     private Bitmap testGlasses;
+
 
     //회색
     // public native void ConvertRGBtoGray(long matAddrInput, long matAddrResult);
@@ -218,6 +220,21 @@ public class MainActivity extends AppCompatActivity
         } catch (IOException e) {
             Log.i(TAG, "이미지 가져오기 실패 : " + e.getMessage());
         }
+        try {
+            Log.i(TAG, "수염 이미지 가져오기 ");
+            InputStream inputStream = getAssets().open("mustache.png");
+            Bitmap mustacheBitmap = BitmapFactory.decodeStream(inputStream);
+
+            mustache = new Mat();
+            Utils.bitmapToMat(mustacheBitmap, mustache);
+            // testImage.setImageBitmap(bitmap);
+            // glasses = Imgcodecs.imread("glasses.png", Imgcodecs.IMREAD_UNCHANGED);
+
+            Log.i(TAG, "수염 이미지 가져왔는지 boolean값으로 확인 : "+ mustache.empty());
+        } catch (IOException e) {
+            Log.i(TAG, "이미지 가져오기 실패 : " + e.getMessage());
+        }
+
         Log.i(TAG, "얼굴과 눈 검출하기 위해 학습시켜 놓은 분류기 로드");
         //녹화 기능
         videoBtn.setOnClickListener(new View.OnClickListener() {
