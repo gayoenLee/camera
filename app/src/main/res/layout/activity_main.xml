@@ -84,7 +84,7 @@
      android:src="@android:drawable/ic_menu_camera" />
 
  <ImageButton
-     android:id="@+id/video_record_btn"
+     android:id="@+id/overlay_image_btn"
      android:layout_width="60dp"
      android:layout_height="60dp"
      android:layout_alignLeft="@+id/take_photo"
@@ -95,6 +95,24 @@
      android:layout_toRightOf="@+id/magic_effect_btn"
      android:background="@null"
      android:src="@drawable/ic_video_call_black_24dp" />
+    <Button
+        android:id="@+id/glasses"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:text="안경"
+        android:layout_alignParentBottom="true"
+        android:layout_alignTop="@+id/overlay_image_btn"
+        android:visibility="gone"/>
+    <Button
+        android:id="@+id/mustache"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:text="수염"
+        android:layout_toRightOf="@+id/glasses"
+        android:layout_alignBottom="@+id/glasses"
+        android:visibility="gone"/>
+
+
 
  <ImageButton
      android:id="@+id/magic_effect_btn"
