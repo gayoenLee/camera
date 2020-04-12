@@ -67,36 +67,36 @@
         android:id="@+id/change_direction_btn"
         android:layout_width="60dp"
         android:layout_height="60dp"
-        android:src="@drawable/ic_autorenew_black_24dp"
         android:layout_alignParentRight="true"
+        android:layout_marginRight="4dp"
+
+        android:src="@drawable/ic_autorenew_black_24dp" />
+
+    <ImageButton
+        android:id="@+id/take_photo"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:layout_alignBottom="@+id/change_direction_btn"
+        android:layout_alignParentRight="true"
+        android:layout_marginRight="9dp"
+        android:layout_marginBottom="-84dp"
+        android:src="@android:drawable/ic_menu_camera" />
+
+    <ImageButton
+        android:id="@+id/overlay_image_btn"
+        android:layout_width="72dp"
+        android:layout_height="72dp"
+        android:layout_alignLeft="@+id/take_photo"
+        android:layout_alignParentLeft="true"
         android:layout_alignParentBottom="true"
-        android:layout_marginRight="20dp"
-        />
+        android:layout_marginLeft="0dp"
+        android:layout_marginBottom="21dp"
+        android:layout_toRightOf="@+id/magic_effect_btn"
+        android:background="@null"
+        android:src="@drawable/ic_face_black_24dp" />
 
- <ImageButton
-     android:id="@+id/take_photo"
-     android:layout_width="60dp"
-     android:layout_height="60dp"
-     android:layout_alignParentRight="true"
-     android:layout_alignParentBottom="true"
-     android:layout_marginRight="128dp"
-     android:layout_marginBottom="-1dp"
-     android:src="@android:drawable/ic_menu_camera" />
-
- <ImageButton
-     android:id="@+id/overlay_image_btn"
-     android:layout_width="60dp"
-     android:layout_height="60dp"
-     android:layout_alignLeft="@+id/take_photo"
-     android:layout_alignParentLeft="true"
-     android:layout_alignParentBottom="true"
-     android:layout_marginLeft="141dp"
-     android:layout_marginBottom="0dp"
-     android:layout_toRightOf="@+id/magic_effect_btn"
-     android:background="@null"
-     android:src="@drawable/ic_video_call_black_24dp" />
     <Button
-        android:id="@+id/glasses"
+        android:id="@+id/glassesbtn"
         android:layout_width="60dp"
         android:layout_height="60dp"
         android:text="안경"
@@ -104,42 +104,42 @@
         android:layout_alignTop="@+id/overlay_image_btn"
         android:visibility="gone"/>
     <Button
-        android:id="@+id/mustache"
+        android:id="@+id/mustachebtn"
         android:layout_width="60dp"
         android:layout_height="60dp"
         android:text="수염"
-        android:layout_toRightOf="@+id/glasses"
-        android:layout_alignBottom="@+id/glasses"
+        android:layout_toRightOf="@+id/glassesbtn"
+        android:layout_alignBottom="@+id/glassesbtn"
         android:visibility="gone"/>
 <Button
-    android:id="@+id/catBlusher"
+    android:id="@+id/catBlusherbtn"
     android:layout_width="60dp"
     android:layout_height="60dp"
     android:text="블러셔"
-     android:layout_toRightOf="@+id/mustache"
-    android:layout_alignBottom="@+id/mustache"
+     android:layout_toRightOf="@+id/mustachebtn"
+    android:layout_alignBottom="@+id/mustachebtn"
     android:visibility="gone"
     />
     <Button
-        android:id="@+id/bearWithGlasses"
+        android:id="@+id/bearWithGlassesbtn"
         android:layout_width="60dp"
         android:layout_height="60dp"
         android:text="곰돌이"
-        android:layout_toRightOf="@+id/catBlusher"
-        android:layout_alignBottom="@+id/catBlusher"
+        android:layout_toRightOf="@+id/catBlusherbtn"
+        android:layout_alignBottom="@+id/catBlusherbtn"
         android:visibility="gone"/>
-    
+
 
     <ImageButton
-     android:id="@+id/magic_effect_btn"
-     android:layout_width="60dp"
-     android:layout_height="60dp"
-     android:layout_alignParentStart="true"
-     android:layout_alignParentBottom="true"
-     android:layout_marginStart="28dp"
-     android:layout_marginLeft="20dp"
-     android:layout_marginBottom="1dp"
-     android:src="@drawable/ic_color_lens_black_24dp" />
+        android:id="@+id/magic_effect_btn"
+        android:layout_width="62dp"
+        android:layout_height="66dp"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentBottom="true"
+        android:layout_marginStart="11dp"
+        android:layout_marginLeft="20dp"
+        android:layout_marginBottom="159dp"
+        android:src="@drawable/ic_color_lens_black_24dp" />
 
 
 </RelativeLayout>
