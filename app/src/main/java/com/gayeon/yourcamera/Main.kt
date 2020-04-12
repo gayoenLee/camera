@@ -31,33 +31,49 @@ import java.io.IOException
 import java.io.InputStream
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.collections.ArrayList
 
 class Main : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewListener2 {
     private var mOpenCVcameraview: CameraBridgeViewBase? = null
     val scale: Double = 1.0
     var FACEDETECT: Boolean = false
-    lateinit var matResult: Mat
-    var matInput: Mat? = null
-    var mat1: Mat? = null
-    var mat2: Mat? = null
+    private lateinit var matResult: Mat
+    private lateinit var matInput: Mat
+    private var mat1: Mat? = null
+    private var mat2: Mat? = null
     private val glasses: Mat? = null
+    private val mustache:Mat? = null
+    private val catBlusher:Mat? = null
+    private val bearGlasses:Mat? = null
     var RGBA: Int? = null
     var GrayScale: Int? = null
     var HSV: Int? = null
     var Smoothing: Int? = null
     var ROI: Int? = null
-    var fileName: String? = null
+    private var fileName: String? = null
     val TAG: String = "메인에서"
-    var directionChangeNum: Int = 0;
-    var result: Mat? = null
-    lateinit var scalarLow: Scalar
-    lateinit var scalarHigh: Scalar
+    private var directionChangeNum: Int = 0;
+    private var faceFilterNum: Int = 1;
+    private var result: Mat? = null
+    private lateinit var scalarLow: Scalar
+    private lateinit var scalarHigh: Scalar
+    //미리보기 이후 쟈른 얼굴의 roi
+    private lateinit var src_roi: Mat
+    private lateinit var roi_gray: Mat
+    private lateinit var roi: Rect
+    private lateinit var roi_rgb: Mat
+    private var glassesFilter = false
+    private var mustacheFilter = false
+    private var catBlusherFilter = false
+    private var bearGlassesFilter = false;
 
-    companion object {
 
+    init {
+        System.loadLibrary("opencv_java4")
+        System.loadLibrary("native-lib")
     }
 
-    protected override fun onCreate(savedInstanceState: Bundle?) {
+    override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
@@ -89,38 +105,86 @@ class Main : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewListener2 {
         scalarHigh = Scalar((120 + 10.0), 255.0, 255.0)
 
         try {
-            val inputStream: InputStream = assets.open("glasses.png")
-            val bitmap: Bitmap = BitmapFactory.decodeStream(inputStream)
+            val glassesStream: InputStream = assets.open("glasses.png")
+            val bitmap: Bitmap = BitmapFactory.decodeStream(glassesStream)
 
-            val glasses: Mat? = null
+
             Utils.bitmapToMat(bitmap, glasses)
             Imgcodecs.imread("glasses.png", Imgcodecs.IMREAD_UNCHANGED)
+
+            val mustacheStream: InputStream = assets.open("mustache.png")
+            val mustacheBitmap = BitmapFactory.decodeStream(mustacheStream)
+            val mustacheMat:Mat? = null
+            Utils.bitmapToMat(mustacheBitmap, mustacheMat)
+            Imgcodecs.imread("mustache.png", Imgcodecs.IMREAD_UNCHANGED)
+
+            val blusherStream:InputStream = assets.open("catblusher.png")
+            val blusherBitmap = BitmapFactory.decodeStream(blusherStream)
+            val blusherMat:Mat? = null
+            Utils.bitmapToMat(blusherBitmap, blusherMat)
+            Imgcodecs.imread("catblusher.png", Imgcodecs.IMREAD_UNCHANGED)
+
+            val bearGlassesStream:InputStream = assets.open("bearGlasses.png")
+            val bearGlassesBitmap = BitmapFactory.decodeStream(bearGlassesStream)
+            val bearGlassesMat:Mat? = null
+            Utils.bitmapToMat(bearGlassesBitmap, bearGlassesMat)
+            Imgcodecs.imread("bearGlasses.png", Imgcodecs.IMREAD_UNCHANGED)
 
         } catch (e: IOException) {
 
         }
 
-        video_record_btn.findViewById<View>(R.id.video_record_btn).setOnClickListener {
+        overlay_image_btn.setOnClickListener {
 
             FACEDETECT = true
-            detectFace(matInput!!, scale, glasses!!)
+            if(glassesbtn.visibility == View.GONE){
+                View.VISIBLE
+            }
+            if(mustachebtn.visibility == View.GONE){
+                View.VISIBLE
+            }
+            if(catBlusherbtn.visibility == View.GONE){
+                View.VISIBLE
+            }
+            if(bearWithGlassesbtn.visibility == View.GONE){
+                View.VISIBLE
+            }else{
+                View.GONE
+            }
+        }
+        glassesbtn.setOnClickListener {
+            faceFilterNum++
+            glassesFilter = faceFilterNum % 2 == 0
+        }
+        mustachebtn.setOnClickListener{
+            faceFilterNum++
+            mustacheFilter = faceFilterNum % 2 == 0
         }
 
-        magic_effect_btn.findViewById<View>(R.id.magic_effect_btn).setOnClickListener {
-            if (no_effect.findViewById<View>(R.id.no_effect)!!.visibility == View.GONE) {
-                no_effect.visibility = View.VISIBLE
+        catBlusherbtn.setOnClickListener{
+            faceFilterNum++
+            catBlusherFilter = faceFilterNum % 2 == 0
+        }
+        bearWithGlassesbtn.setOnClickListener {
+            faceFilterNum ++
+            bearGlassesFilter = faceFilterNum % 2 == 0
+        }
+
+        magic_effect_btn.setOnClickListener {
+            if (no_effect!!.visibility == View.GONE) {
+                View.VISIBLE
             }
-            if (hsv_effect.findViewById<View>(R.id.hsv_effect)!!.visibility == View.GONE) {
-                hsv_effect.visibility = View.VISIBLE
+            if (hsv_effect!!.visibility == View.GONE) {
+                 View.VISIBLE
             }
-            if (smoothing_effect.findViewById<View>(R.id.smoothing_effect)!!.visibility == View.GONE) {
-                smoothing_effect.visibility = View.VISIBLE
+            if (smoothing_effect!!.visibility == View.GONE) {
+                 View.VISIBLE
             }
-            if (gray_effect.findViewById<View>(R.id.gray_effect)!!.visibility == View.GONE) {
-                gray_effect.visibility = View.VISIBLE
+            if (gray_effect!!.visibility == View.GONE) {
+                View.VISIBLE
             }
-            if (roi_effect.findViewById<View>(R.id.roi_effect)!!.visibility == View.GONE) {
-                roi_effect.visibility = View.VISIBLE
+            if (roi_effect!!.visibility == View.GONE) {
+               View.VISIBLE
             }
         }
 
@@ -162,17 +226,17 @@ class Main : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewListener2 {
         }
 
         take_photo.setOnClickListener {
-            var simpleDateFormat: SimpleDateFormat? = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss");
-            var currentDateAndTime: String = simpleDateFormat!!.format(Date())
-            var intermediateMat: Mat? = null
+            val simpleDateFormat: SimpleDateFormat? = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss");
+            val currentDateAndTime: String = simpleDateFormat!!.format(Date())
+            val intermediateMat: Mat? = null
             Imgproc.cvtColor(matInput, intermediateMat, Imgproc.COLOR_RGBA2BGR, 3)
-            var path: File = File(Environment.getExternalStorageDirectory().toString() + "/Images/")
+            val path: File = File(Environment.getExternalStorageDirectory().toString() + "/Images/")
             path.mkdirs()
-            var file: File = File(path, currentDateAndTime + "image.png");
+            val file: File = File(path, currentDateAndTime + "image.png");
             fileName = file.toString()
             //사진 찍기
             mOpenCVcameraview!!.takePicture(fileName)
-            var boolean: Boolean = Imgcodecs.imwrite(fileName, intermediateMat)
+            val boolean: Boolean = Imgcodecs.imwrite(fileName, intermediateMat)
 
             if (boolean)
                 Log.i(TAG, "SUCCESS writing image to external storage")
@@ -199,15 +263,15 @@ class Main : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewListener2 {
 
     }
 
-    public fun detectFace(matInput: Mat, scale: Double, glasses: Mat) {
-
-        var cascadeClassifier: CascadeClassifier? = null
-        var cascadeClassifierEye: CascadeClassifier? = null
+   fun detectFace(matInput: Mat, scale: Double, glasses: Mat): Mat? {
+lateinit var matInput:Mat
+        val cascadeClassifier: CascadeClassifier? = null
+        val cascadeClassifierEye: CascadeClassifier? = null
 
         if (cascadeClassifier!!.empty()) {
             Log.i(TAG, "얼굴 검출 파일 없어서 가져오기")
 
-            var path: String = Environment.getExternalStorageDirectory().absolutePath
+            val path: String = Environment.getExternalStorageDirectory().absolutePath
             cascadeClassifier.load(path + "/haarcascade_frontalface_alt.xml")
 
         }
@@ -223,17 +287,32 @@ class Main : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewListener2 {
         matInput.copyTo(mRgba)
         matInput.copyTo(gray)
 
-        Imgproc.cvtColor(matInput, gray, Imgproc.COLOR_BGRA2GRAY)
+        Imgproc.cvtColor(matInput, gray, Imgproc.COLOR_RGBA2GRAY)
         Imgproc.equalizeHist(gray, gray)
         cascadeClassifier.detectMultiScale(gray, faces, 1.1, 2, 0, Size(30.0, 30.0), Size())
 
         cascadeClassifier.detectMultiScale(gray, faces, 1.1, 2, 0, Size(30.0, 30.0))
         //var faceArray: Rect[]
+       //배열의 인덱스를 사용해서 값을 가지고 오고 싶을 때 indices사용.
         var facesArray = faces!!.toArray()
         for (item: Int in facesArray.indices) {
-            var centerFace: Point = Point(facesArray[item].x + facesArray[item].width * 0.5,
+            var centerFace = Point(facesArray[item].x + facesArray[item].width * 0.5,
                     facesArray[item].y + facesArray[item].height * 0.5)
 
+            if(glassesFilter){
+                matInput = putMask(matInput, centerFace, Size(facesArray[item].width * 0.8, facesArray[item].height * 0.4))
+            }
+            if(mustacheFilter){
+matInput = putMask(matInput, Point(facesArray[item].x + facesArray[item].width * 0.5, facesArray[item].y + facesArray[item].height * 0.5 + 60), Size(facesArray[item].width + 0.4, facesArray[item].height * 0.6))
+                
+            }
+            if(catBlusherFilter){
+matInput = putMask(matInput, Point(facesArray[item].x + facesArray[item].width * 0.5, facesArray[item].y + facesArray[item].height * 0.5 + 30), Size(facesArray[item].width + 0.4, facesArray[item].height * 0.6) )
+            }
+            if(bearGlassesFilter){
+                matInput = putMask(matInput, centerFace, Size(facesArray[item].width * 0.8, facesArray[item].height * 0.4))
+
+            }
             var faceROI = gray?.submat(facesArray[item])
             var eyes: MatOfRect? = null
 
@@ -250,99 +329,94 @@ class Main : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewListener2 {
             cascadeClassifierEye.detectMultiScale(faceROI, eyes, 1.1, 4, 0, Size(30.0, 30.0))
             var eyesArray = eyes!!.toArray()
 
-            if (eyesArray.size == 2) {
-                var centerFirst: Point = Point(facesArray[item].x + eyesArray[0].x + eyesArray[0].width * 0.5,
-                        facesArray[item].y + eyesArray[0].y + eyesArray[0].height * 0.5);
 
-                var centerSecond: Point = Point(facesArray[item].x + eyesArray[1].x + eyesArray[1].width * 0.5,
-                        facesArray[item].y + eyesArray[1].y + eyesArray[1].height * 0.5)
-
-                if (centerFirst.x > centerSecond.x) {
-                    var temporary: Point? = null
-                    temporary = centerFirst
-                    centerFirst = centerSecond
-                    centerSecond = temporary
                 }
-
-                var width: Int = Math.abs(centerSecond.x - centerFirst.x).toInt()
-                var height: Int = Math.abs(centerSecond.y - centerFirst.y).toInt()
-
-                if (width > height) {
-                    var imageScale: Float = (width / 330.0).toFloat()
-
-                    var glassSizeWidth: Int
-                    var glassSizeHeight: Int
-
-                    glassSizeWidth = glasses.cols() * imageScale.toInt()
-                    glassSizeHeight = glasses.rows() * imageScale.toInt()
-
-                    var offsetX: Int = 150 * imageScale.toInt()
-                    var offsetY: Int = 160 * imageScale.toInt()
-
-                    var outputSecond: Mat? = null
-                    faceROI?.copyTo(outputSecond)
-
-                    val resizedGlasses: Mat? = null
-                    Imgproc.resize(glasses, resizedGlasses, Size(glassSizeWidth.toDouble(), glassSizeHeight.toDouble()))
-                    overlayImage(outputSecond!!, resizedGlasses!!, result!!, Point(centerFirst.x - offsetX, centerFirst.y - offsetY))
-                    outputSecond = result
-                }
-
-
+       return result
             }
 
+    fun putMask(src: Mat, center: Point, face_size: Size): Mat {
+
+        var mask_resized = Mat()
+        src_roi = Mat()
+        roi_gray = Mat()
+        if(glassesFilter) {
+            Imgproc.resize(glasses, mask_resized, face_size)
+        }
+        if(mustacheFilter){
+            Imgproc.resize(mustache, mask_resized, face_size)
 
         }
+        if(catBlusherFilter){
+            Imgproc.resize(catBlusher, mask_resized, face_size)
+
+        }
+        if(bearGlassesFilter){
+            Imgproc.resize(bearGlasses, mask_resized, face_size)
+
+        }
+        roi = Rect((center.x - face_size.width / 2).toInt(), (center.y - face_size.height / 2).toInt(), face_size.width.toInt(), face_size.height.toInt())
+        src.submat(roi).copyTo(src_roi)
+
+        var mask_grey = Mat()
+        roi_rgb = Mat()
+
+        Imgproc.cvtColor(mask_resized, mask_resized, Imgproc.COLOR_BGRA2GRAY)
+        Imgproc.threshold(mask_grey, mask_grey, 230.0, 255.0, Imgproc.THRESH_BINARY_INV)
+
+        val maskChannels: ArrayList<Mat> = ArrayList(4)
+        val result_mask: ArrayList<Mat> = ArrayList(4)
+        result_mask.add(Mat())
+        result_mask.add(Mat())
+        result_mask.add(Mat())
+        result_mask.add(Mat())
+
+        Core.split(mask_resized, maskChannels)
+
+        Core.bitwise_and(maskChannels.get(0), mask_grey, result_mask.get(0))
+        Core.bitwise_and(maskChannels.get(1), mask_grey, result_mask.get(1))
+        Core.bitwise_and(maskChannels.get(2), mask_grey, result_mask.get(2))
+        Core.bitwise_and(maskChannels.get(3), mask_grey, result_mask.get(3))
+
+        //분리됐던 3개의 채널을 다시 하나의 3채널 컬러 영상으로 생성.
+        Core.merge(result_mask, roi_gray)
+
+        //not은 색이 반대로 나타나는 것.
+        //not은 색이 반대로 나타나는 것.
+        Core.bitwise_not(mask_grey, mask_grey)
+
+        val srcChannels: ArrayList<Mat> = ArrayList(4)
+        //4개 채널 가진 src_roi를 split해서 각 싱글 채널을 소스 채널에 담음.
+        Core.split(src_roi, srcChannels)
+        Core.bitwise_and(srcChannels[0], mask_grey, result_mask[0])
+        Core.bitwise_and(srcChannels[1], mask_grey, result_mask[1])
+        Core.bitwise_and(srcChannels[2], mask_grey, result_mask[2])
+        Core.bitwise_and(srcChannels[3], mask_grey, result_mask[3])
+
+        Core.merge(result_mask, roi_rgb)
+
+        Core.addWeighted(roi_gray, 1.0, roi_rgb, 1.0, 0.0, roi_rgb)
+//roi_rgb를 src의 roi영역에 붙인다.
+        //roi_rgb를 src의 roi영역에 붙인다.
+        roi_rgb.copyTo(Mat(src, roi))
+        Log.d(TAG, "src 리턴" + src.width())
+
+        return src
+
+
     }
 
-    fun overlayImage(background: Mat, foreground: Mat, output: Mat, location: Point) {
 
-        background.copyTo(output)
-        var y = location.y.toInt().coerceAtLeast(0)
-        val backgroundRows: Int? = null
-        for (y in 0 until backgroundRows!!) {
-            var fY: Int = (y - location.y).toInt()
-            if (fY >= foreground.rows()) {
-                break
-            }
+    private fun convertMatToBitmap(input: Mat): Bitmap {
+        var bitmap: Bitmap? = null
+        var rgb = Mat()
+        Imgproc.cvtColor(input, rgb, Imgproc.COLOR_BGR2RGB)
+        try {
+            bitmap = Bitmap.createBitmap(rgb.cols(), rgb.rows(), Bitmap.Config.ARGB_8888)
+            Utils.matToBitmap(rgb, bitmap)
+        } catch (e: Exception) {
 
-            var x = location.x.toInt().coerceAtLeast(0)
-            val backgroundCols: Int? = null
-            for (x in 0 until backgroundCols!!) {
-                var fX: Int = (x - location.x).toInt()
-                if (fX >= foreground.cols()) {
-                    break
-                }
-
-                var opacity: Double
-                val finalPixelValue = DoubleArray(4)
-                opacity = foreground.get(fY, fX)[3]
-
-                finalPixelValue[0] = background.get(y, x)[0]
-                finalPixelValue[1] = background[y, x][1]
-                Log.i(TAG, " 오버레이 백그라운도 파이널픽셀밸류 번째: " + finalPixelValue[1])
-                finalPixelValue[2] = background[y, x][2]
-                Log.i(TAG, " 오버레이 백그라운도 파이널픽셀밸류 번째: " + finalPixelValue[2])
-                finalPixelValue[3] = background[y, x][3]
-                Log.i(TAG, " 오버레이 백그라운도 파이널픽셀밸류 세번째: " + finalPixelValue[3])
-
-
-                for (c in 0 until output.channels()) {
-                    if (opacity > 0) {
-                        var foregroundPx: Double = foreground.get(fY, fX)[c]
-                        var backgroundPx: Double = background.get(y, x)[c]
-                        var fOpacity: Float = (opacity / 255).toFloat()
-
-                        if (c == 3) {
-                            finalPixelValue[c] = foreground.get(fY, fX)[3]
-                        }
-                    }
-                }
-                output.put(y, x, finalPixelValue.last())
-            }
         }
-
-
+        return bitmap!!
     }
 
     private fun read_cascade_file() {
@@ -425,7 +499,7 @@ class Main : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewListener2 {
         matInput = inputFrame!!.rgba()
         if (FACEDETECT) {
             detectFace(matInput!!, scale, glasses!!)
-            return matResult
+            return matInput
         }
 
         if (GrayScale == 1) {
@@ -437,7 +511,7 @@ class Main : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewListener2 {
         if (HSV == 1) {
             Imgproc.cvtColor(inputFrame.rgba(), mat1, Imgproc.COLOR_RGB2HSV)
             Core.inRange(mat1, scalarLow, scalarHigh, mat2)
-            matInput = mat2
+            matInput = this.mat2!!
         }
         if (Smoothing == 1) {
             val size: Size = Size(21.0, 21.0)
@@ -446,7 +520,7 @@ class Main : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewListener2 {
         if (ROI == 1) {
             Imgproc.cvtColor(inputFrame.rgba(), mat1, Imgproc.COLOR_RGB2HSV)
             Core.bitwise_and(matInput, matInput, mat1, mat2)
-            matInput = mat1
+            matInput = this.mat1!!
         }
 
 
@@ -508,7 +582,7 @@ class Main : AppCompatActivity(), CameraBridgeViewBase.CvCameraViewListener2 {
         builder.setMessage(msg)
         builder.setCancelable(false)
         builder.setPositiveButton("예") { dialogInterface: DialogInterface, i: Int ->
-            requestPermissions(arrayOf(CAMERA, WRITE_EXTERNAL_STORAGE),CAMERA_PERMISSION_REQUEST_CODE)
+            requestPermissions(arrayOf(CAMERA, WRITE_EXTERNAL_STORAGE), CAMERA_PERMISSION_REQUEST_CODE)
         }
         builder.setNegativeButton("아니요") { dialogInterface: DialogInterface, i: Int ->
             finish()
