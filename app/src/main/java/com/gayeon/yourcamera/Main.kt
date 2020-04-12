@@ -362,8 +362,21 @@ matInput = putMask(matInput, Point(facesArray[item].x + facesArray[item].width *
         roi_rgb = Mat()
 
         Imgproc.cvtColor(mask_resized, mask_resized, Imgproc.COLOR_BGRA2GRAY)
-        Imgproc.threshold(mask_grey, mask_grey, 230.0, 255.0, Imgproc.THRESH_BINARY_INV)
 
+        //이 값을 이용해 그레이 영상에서 배경과 물체를 분리해냄.
+//그레이스케일 이미지, 픽셀 문턱값, 픽셀 문턱값보다 클 때 적용되는 최대값, 문턱값 적용 방법 또는 스타일
+        if (glassesFilter) {
+            Imgproc.threshold(mask_grey, mask_grey, 230.0, 255.0, Imgproc.THRESH_BINARY_INV)
+        }
+        if (mustacheFilter) {
+            Imgproc.threshold(mask_grey, mask_grey, 250.0, 255.0, Imgproc.THRESH_BINARY_INV)
+        }
+        if (catBlusherFilter) {
+            Imgproc.threshold(mask_grey, mask_grey, 230.0, 255.0, Imgproc.THRESH_BINARY_INV)
+        }
+        if (bearGlassesFilter) {
+            Imgproc.threshold(mask_grey, mask_grey, 230.0, 255.0, Imgproc.THRESH_BINARY_INV)
+        }
         val maskChannels: ArrayList<Mat> = ArrayList(4)
         val result_mask: ArrayList<Mat> = ArrayList(4)
         result_mask.add(Mat())
