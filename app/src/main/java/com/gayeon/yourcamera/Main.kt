@@ -310,7 +310,8 @@ matInput = putMask(matInput, Point(facesArray[item].x + facesArray[item].width *
 matInput = putMask(matInput, Point(facesArray[item].x + facesArray[item].width * 0.5, facesArray[item].y + facesArray[item].height * 0.5 + 30), Size(facesArray[item].width + 0.4, facesArray[item].height * 0.6) )
             }
             if(bearGlassesFilter){
-                matInput = putMask(matInput, centerFace, Size(facesArray[item].width * 0.8, facesArray[item].height * 0.4))
+                matInput = putMask(matInput,Point(facesArray[item].x + facesArray[item].width * 0.5,
+                        facesArray[item].y + facesArray[item].height * 0.3), Size(facesArray[item].width +50.0, facesArray[item].height + 90.0))
 
             }
             var faceROI = gray?.submat(facesArray[item])
