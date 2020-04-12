@@ -76,7 +76,8 @@ public class MainActivity extends AppCompatActivity
     Button roiBtn;
     //전면 카메라, 후면 카메라 방향 전환에 사용.
     private int cameraID;
-    int i = 0;
+    int cameraIndexNum = 0;
+    int faceFilterNum = 1;
 
     //필터 효과 관련 변수들
     int RGBA;
@@ -216,70 +217,92 @@ public class MainActivity extends AppCompatActivity
             bearGlasses = new Mat();
             Utils.bitmapToMat(bearGlassesBitmap, bearGlasses);
 
-           // testImage.setImageBitmap(bitmap);
+            // testImage.setImageBitmap(bitmap);
             // glasses = Imgcodecs.imread("glasses.png", Imgcodecs.IMREAD_UNCHANGED);
-            Log.i(TAG, "안경 이미지 가져왔는지 boolean값으로 확인 : "+ glasses.empty());
+            Log.i(TAG, "안경 이미지 가져왔는지 boolean값으로 확인 : " + glasses.empty());
         } catch (IOException e) {
             Log.i(TAG, "이미지 가져오기 실패 : " + e.getMessage());
         }
         Log.i(TAG, "얼굴과 눈 검출하기 위해 학습시켜 놓은 분류기 로드");
         //녹화 기능
         overlayBtn.setOnClickListener(new View.OnClickListener() {
-                                        @Override
-                                        public void onClick(View v) {
-                                            Log.i(TAG, "얼굴 인식 시작 버튼 클릭");
-                                            FACEDETECT = true;
-                                            if (glassesBtn.getVisibility() == v.GONE) {
-                                                Log.i(TAG, "필터 안에 버튼 보이도록 하기");
-                                                glassesBtn.setVisibility(v.VISIBLE);
-                                            } else {
-                                                glassesBtn.setVisibility(v.GONE);
-                                            }
-                                            if (mustacheBtn.getVisibility() == v.GONE) {
-                                                mustacheBtn.setVisibility(v.VISIBLE);
-                                            } else {
-                                                mustacheBtn.setVisibility(v.GONE);
-                                            }
-                                            if (catBlusherBtn.getVisibility() == v.GONE) {
-                                                Log.i(TAG, "필터 안에 버튼 보이도록 하기");
-                                                catBlusherBtn.setVisibility(v.VISIBLE);
-                                            } else {
-                                                catBlusherBtn.setVisibility(v.GONE);
-                                            }
-                                            if (bearGlassesBtn.getVisibility() == v.GONE) {
-                                                bearGlassesBtn.setVisibility(v.VISIBLE);
-                                            } else {
-                                                bearGlassesBtn.setVisibility(v.GONE);
-                                            }
-                                        }
-                                    }
+                                          @Override
+                                          public void onClick(View v) {
+                                              Log.i(TAG, "얼굴 인식 시작 버튼 클릭");
+                                              FACEDETECT = true;
+                                              if (glassesBtn.getVisibility() == v.GONE) {
+                                                  Log.i(TAG, "필터 안에 버튼 보이도록 하기");
+                                                  glassesBtn.setVisibility(v.VISIBLE);
+                                              } else {
+                                                  glassesBtn.setVisibility(v.GONE);
+                                              }
+                                              if (mustacheBtn.getVisibility() == v.GONE) {
+                                                  mustacheBtn.setVisibility(v.VISIBLE);
+                                              } else {
+                                                  mustacheBtn.setVisibility(v.GONE);
+                                              }
+                                              if (catBlusherBtn.getVisibility() == v.GONE) {
+                                                  Log.i(TAG, "필터 안에 버튼 보이도록 하기");
+                                                  catBlusherBtn.setVisibility(v.VISIBLE);
+                                              } else {
+                                                  catBlusherBtn.setVisibility(v.GONE);
+                                              }
+                                              if (bearGlassesBtn.getVisibility() == v.GONE) {
+                                                  bearGlassesBtn.setVisibility(v.VISIBLE);
+                                              } else {
+                                                  bearGlassesBtn.setVisibility(v.GONE);
+                                              }
+                                          }
+                                      }
         );
-         glassesBtn.setOnClickListener(new View.OnClickListener() {
-             @Override
-             public void onClick(View v) {
-                 glassesFilter = true;
-             }
-         });
-         mustacheBtn.setOnClickListener(new View.OnClickListener() {
-             @Override
-             public void onClick(View v) {
-                 mustacheFilter = true;
-             }
-         });
-         catBlusherBtn.setOnClickListener(new View.OnClickListener() {
-             @Override
-             public void onClick(View v) {
-                 catBlusherFilter = true;
+        glassesBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                faceFilterNum++;
+                if(faceFilterNum%2==0) {
+                    glassesFilter = true;
+                }
+                else{
+                    glassesFilter = false;
+                }
+            }
+        });
+        mustacheBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                faceFilterNum++;
+                if(faceFilterNum%2==0) {
+                    mustacheFilter = true;
+                }else{
+                    mustacheFilter = false;
+                }
+            }
+        });
+        catBlusherBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                faceFilterNum++;
+                if(faceFilterNum%2==0) {
+                    catBlusherFilter = true;
+                }
+                else{
+                    catBlusherFilter = false;
+                }
 
-             }
-         });
-         bearGlassesBtn.setOnClickListener(new View.OnClickListener() {
-             @Override
-             public void onClick(View v) {
-                 bearGlassesFilter = true;
+            }
+        });
+        bearGlassesBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                faceFilterNum++;
+                if(faceFilterNum%2==0) {
+                    bearGlassesFilter = true;
+                }else{
+                    bearGlassesFilter = false;
+                }
 
-             }
-         });
+            }
+        });
         //필터 선택 버튼
         makeFilterBtn.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -400,8 +423,8 @@ public class MainActivity extends AppCompatActivity
             @Override
             public void onClick(View v) {
                 Log.i(TAG, "렌즈 방향 전환 클릭");
-                i++;
-                if (i % 2 == 0) {
+                cameraIndexNum++;
+                if (cameraIndexNum % 2 == 0) {
                     Log.i(TAG, "전면 카메라");
                     cameraID = 0;
                     mOpenCvCameraView.setCameraIndex(cameraID);
@@ -438,14 +461,14 @@ public class MainActivity extends AppCompatActivity
         }
         Log.i(TAG, "얼굴 검출할 그레이스케일 이미지 준비.");
 
-      //  Mat mRgba = new Mat(matInput.rows(), matInput.cols(), CvType.CV_8UC3);
+        //  Mat mRgba = new Mat(matInput.rows(), matInput.cols(), CvType.CV_8UC3);
         Mat gray = new Mat();
         MatOfRect faces = new MatOfRect();
 
         //matInput.copyTo(mRgba);
         matInput.copyTo(gray);
         //outputSecond = new Mat();
-       // matInput.copyTo(outputSecond);
+        // matInput.copyTo(outputSecond);
         Imgproc.cvtColor(matInput, gray, Imgproc.COLOR_RGBA2GRAY);
         //equalizeHiststory
         Imgproc.equalizeHist(gray, gray);
@@ -471,22 +494,22 @@ public class MainActivity extends AppCompatActivity
             //타원 그리기
             // ellipse(matInput, centre1, new Size(facesArray[i].width * 0.5, facesArray[i].height * 0.5), 0, 0, 360,
             //        new Scalar(255, 0, 255), 4, 8, 0);
-             if(glassesFilter){
-                 matInput = putMask(matInput, centre1, new Size(facesArray[i].width, facesArray[i].height*0.7));
-             }
-             if(mustacheFilter){
+            if (glassesFilter) {
+                matInput = putMask(matInput, centre1, new Size(facesArray[i].width, facesArray[i].height * 0.7));
+            }
+            if (mustacheFilter) {
 
-                 matInput = putMask(matInput, new Point(facesArray[i].x+facesArray[i].width*0.5, facesArray[i].y+facesArray[i].height*0.5+60), new Size(facesArray[i].width+0.4, facesArray[i].height*0.6));
-             }
-             if(catBlusherFilter){
-                 matInput = putMask(matInput, new Point(facesArray[i].x+facesArray[i].width*0.5, facesArray[i].y+facesArray[i].height*0.5+30), new Size(facesArray[i].width+0.4, facesArray[i].height*0.6));
-             }
-             if(bearGlassesFilter){
-                 matInput = putMask(matInput,new Point(facesArray[i].x + facesArray[i].width * 0.5,
-                         facesArray[i].y + facesArray[i].height * 0.3), new Size(facesArray[i].width+50, facesArray[i].height+90));
+                matInput = putMask(matInput, new Point(facesArray[i].x + facesArray[i].width * 0.5, facesArray[i].y + facesArray[i].height * 0.5 + 60), new Size(facesArray[i].width + 0.4, facesArray[i].height * 0.6));
+            }
+            if (catBlusherFilter) {
+                matInput = putMask(matInput, new Point(facesArray[i].x + facesArray[i].width * 0.5, facesArray[i].y + facesArray[i].height * 0.5 + 30), new Size(facesArray[i].width + 0.4, facesArray[i].height * 0.6));
+            }
+            if (bearGlassesFilter) {
+                matInput = putMask(matInput, new Point(facesArray[i].x + facesArray[i].width * 0.5,
+                        facesArray[i].y + facesArray[i].height * 0.3), new Size(facesArray[i].width + 50, facesArray[i].height + 90));
 
-             }
-             //그레이 이미지에서 faceArray의 i번째 얼굴을 잘라낸다.
+            }
+            //그레이 이미지에서 faceArray의 i번째 얼굴을 잘라낸다.
             Mat faceROI = gray.submat(facesArray[i]);
             MatOfRect eyes = new MatOfRect();
 
@@ -513,7 +536,7 @@ public class MainActivity extends AppCompatActivity
                 //원 반지름
                 int radius = (int) Math.round((eyesArray[j].width + eyesArray[j].height) * 0.25);
                 //원이 그려질 이미지, 원의 중심 좌표, 원의 반지름, 원의 색, 선 굵기, 디폴트값8(선 타입), 디폴트값 0(shift)
-                }
+            }
         }
         return result;
 
@@ -529,16 +552,16 @@ public class MainActivity extends AppCompatActivity
         roi_gray = new Mat();
         //원본 이미지, 결과 이미지 크기, 줄일 사이즈
         Log.d(TAG, "resize 호출 전" + mask_resized.empty());
-        if(mustacheFilter){
+        if (mustacheFilter) {
             Imgproc.resize(mustache, mask_resized, face_size);
         }
-        if(glassesFilter) {
+        if (glassesFilter) {
             Imgproc.resize(glasses, mask_resized, face_size);
         }
-        if(catBlusherFilter){
+        if (catBlusherFilter) {
             Imgproc.resize(catBlusher, mask_resized, face_size);
         }
-        if(bearGlassesFilter){
+        if (bearGlassesFilter) {
             Imgproc.resize(bearGlasses, mask_resized, face_size);
         }
         Log.d(TAG, "리사이즈 호출 후" + mask_resized.empty());
@@ -558,23 +581,23 @@ public class MainActivity extends AppCompatActivity
         Imgproc.cvtColor(mask_resized, mask_grey, Imgproc.COLOR_BGRA2GRAY);
         //이 값을 이용해 그레이 영상에서 배경과 물체를 분리해냄.
         //그레이스케일 이미지, 픽셀 문턱값, 픽셀 문턱값보다 클 때 적용되는 최대값, 문턱값 적용 방법 또는 스타일
-        if(glassesFilter) {
+        if (glassesFilter) {
             Imgproc.threshold(mask_grey, mask_grey, 230, 255, Imgproc.THRESH_BINARY_INV);
         }
-        if(mustacheFilter) {
+        if (mustacheFilter) {
             Imgproc.threshold(mask_grey, mask_grey, 250, 255, Imgproc.THRESH_BINARY_INV);
         }
-        if(catBlusherFilter){
+        if (catBlusherFilter) {
             Imgproc.threshold(mask_grey, mask_grey, 230, 255, Imgproc.THRESH_BINARY_INV);
         }
-        if(bearGlassesFilter){
+        if (bearGlassesFilter) {
             Imgproc.threshold(mask_grey, mask_grey, 230, 255, Imgproc.THRESH_BINARY_INV);
 
         }
         //마스크 채널 4개 배열 선언(rgba)
         //결과 마스크 4개 배열 만들어서 각각 mat넣음 만듦.
         ArrayList<Mat> maskChannels = new ArrayList<>(4);
-        Log.i(TAG, " 마스크 채널 확인 : "+ maskChannels.size());
+        Log.i(TAG, " 마스크 채널 확인 : " + maskChannels.size());
         ArrayList<Mat> result_mask = new ArrayList<>(4);
         result_mask.add(new Mat());
         result_mask.add(new Mat());
@@ -587,10 +610,10 @@ public class MainActivity extends AppCompatActivity
         //비트연산. 이미지에서 특정 영역을 추출할 때 유용하게 사용.
         //mask가 검정색이 아닌 경우만 통과가 되기때문에 mask영역 이외는 모두 제거됨.
         //(inputarray src1, inputarray src2, outputarray dst, inputarray mask = noarray())..mask범위 내에서 두 개의 어레이(src1, src2)의 비트연산and결과
-        Core.bitwise_and(maskChannels.get(0),mask_grey,result_mask.get(0));
-        Core.bitwise_and(maskChannels.get(1),mask_grey,result_mask.get(1));
-        Core.bitwise_and(maskChannels.get(2),mask_grey,result_mask.get(2));
-        Core.bitwise_and(maskChannels.get(3),mask_grey,result_mask.get(3));
+        Core.bitwise_and(maskChannels.get(0), mask_grey, result_mask.get(0));
+        Core.bitwise_and(maskChannels.get(1), mask_grey, result_mask.get(1));
+        Core.bitwise_and(maskChannels.get(2), mask_grey, result_mask.get(2));
+        Core.bitwise_and(maskChannels.get(3), mask_grey, result_mask.get(3));
 
         //분리됐던 3개의 채널을 다시 하나의 3채널 컬러 영상으로 생성.
         Core.merge(result_mask, roi_gray);
@@ -622,35 +645,35 @@ public class MainActivity extends AppCompatActivity
     @Override
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
         matInput = inputFrame.rgba();
-        if(FACEDETECT){
-         detectFace(matInput, scale, glasses);
-         return matInput;
-}
-            if (GrayScale == 1) {
-                matInput = inputFrame.gray();
-            }
-            if (RGBA == 1) {
-                matInput = inputFrame.rgba();
-            }
-            if (HSV == 1) {
-                Imgproc.cvtColor(inputFrame.rgba(), mat1, Imgproc.COLOR_RGB2HSV);
-                //inRange는 그 범위안에 들어가게 되면 0으로 만들어주고, 나머지는 1로 만들어 흑백사진을 만듦.
-                Core.inRange(mat1, scalarLow, scalarHigh, mat2);
-                matInput = mat2;
-            }
-            if (Smoothing == 1) {
-                org.opencv.core.Size size = new Size(21, 21);
-                Imgproc.boxFilter(matInput, matInput, -1, size);
-            }
-            if (ROI == 1)
-                Imgproc.cvtColor(inputFrame.rgba(), mat1, Imgproc.COLOR_RGB2HSV);
-            Core.bitwise_and(matInput, matInput, mat1, mat2);
-            matInput = mat1;
+        if (FACEDETECT) {
+            detectFace(matInput, scale, glasses);
+            return matInput;
+        }
+        if (GrayScale == 1) {
+            matInput = inputFrame.gray();
+        }
+        if (RGBA == 1) {
+            matInput = inputFrame.rgba();
+        }
+        if (HSV == 1) {
+            Imgproc.cvtColor(inputFrame.rgba(), mat1, Imgproc.COLOR_RGB2HSV);
+            //inRange는 그 범위안에 들어가게 되면 0으로 만들어주고, 나머지는 1로 만들어 흑백사진을 만듦.
+            Core.inRange(mat1, scalarLow, scalarHigh, mat2);
+            matInput = mat2;
+        }
+        if (Smoothing == 1) {
+            org.opencv.core.Size size = new Size(21, 21);
+            Imgproc.boxFilter(matInput, matInput, -1, size);
+        }
+        if (ROI == 1)
+            Imgproc.cvtColor(inputFrame.rgba(), mat1, Imgproc.COLOR_RGB2HSV);
+        Core.bitwise_and(matInput, matInput, mat1, mat2);
+        matInput = mat1;
 
        /* detect(cascadeClassifier_face, cascadeClassifier_eye, matInput.getNativeObjAddr(),
                 matInput.getNativeObjAddr());
 */
-            // Core.flip(matInput, matInput, 1);
+        // Core.flip(matInput, matInput, 1);
         return matInput;
     }
 
@@ -674,8 +697,8 @@ public class MainActivity extends AppCompatActivity
 
         AssetManager assetManager = this.getAssets();
 
-        InputStream inputStream ;
-        OutputStream outputStream ;
+        InputStream inputStream;
+        OutputStream outputStream;
 
         try {
             Log.d(TAG, "copyFile :: 다음 경로로 파일복사 " + pathDir);
@@ -755,7 +778,7 @@ public class MainActivity extends AppCompatActivity
     public void onCameraViewStopped() {
     }
 
-//TODO List<?>: List of unknown. 유연하다는 장점
+    //TODO List<?>: List of unknown. 유연하다는 장점
     protected List<? extends CameraBridgeViewBase> getCameraViewList() {
         return Collections.singletonList(mOpenCvCameraView);
     }
