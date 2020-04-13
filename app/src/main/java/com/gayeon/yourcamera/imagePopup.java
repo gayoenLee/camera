@@ -98,7 +98,7 @@ public class imagePopup extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_image_popup);
         galleryImage = findViewById(R.id.bigPhoto);
-        filterResultImageView = findViewById(R.id.imageViewOutput);
+      //  filterResultImageView = findViewById(R.id.imageViewOutput);
 
         backgroundFilterBtn = findViewById(R.id.background_filter);
         edgeBtn = findViewById(R.id.edge_button);
@@ -177,21 +177,7 @@ public class imagePopup extends AppCompatActivity {
                     backgroundFilterBtn.setVisibility(view.GONE);
                     faceLayout.setVisibility(view.VISIBLE);
                     //얼굴 인식 메소드 실행
-
-                    if(imageInput == null){
-                        Log.i(TAG, "이미지 인풋이 널일 때");
-                        imageInput = new Mat();
-                    }
-
-                    detectFace(imageInput, scale, glasses);
-                    Log.i(TAG, "얼굴 인식 메소드 실행");
-
-                    Bitmap bitmapOutput = Bitmap.createBitmap(imageInput.cols(), imageInput.rows(), Bitmap.Config.ARGB_8888, true);
-                    Utils.matToBitmap(imageInput, bitmapOutput);
-                    galleryImage.setImageBitmap(bitmapOutput);
-
                 }
-
             }
         });
 
@@ -201,8 +187,24 @@ public class imagePopup extends AppCompatActivity {
                 faceFilterNum++;
                 if (faceFilterNum % 2 == 0) {
                     glassesFilter = true;
+
+                    detectFace(imageInput, scale, glasses);
+                    Log.i(TAG, "얼굴 인식 메소드 실행");
+                    if(imageInput == null){
+                        Log.i(TAG, "이미지 인풋이 널일 때");
+                        imageInput = new Mat();
+                    }
+                    Bitmap bitmapOutput = Bitmap.createBitmap(imageInput.cols(), imageInput.rows(), Bitmap.Config.ARGB_8888, true);
+                    Utils.matToBitmap(imageInput, bitmapOutput);
+                    galleryImage.setImageBitmap(null);
+                    galleryImage.setImageBitmap(bitmapOutput);
                 } else {
                     glassesFilter = false;
+                    if(imageInput == null){
+                        Log.i(TAG, "이미지 인풋이 널일 때");
+                        imageInput = new Mat();
+                    }
+                    galleryImage.setImageBitmap(resized);
                 }
             }
         });
@@ -212,8 +214,24 @@ public class imagePopup extends AppCompatActivity {
                 faceFilterNum++;
                 if (faceFilterNum % 2 == 0) {
                     mustacheFilter = true;
+
+                    detectFace(imageInput, scale, glasses);
+                    Log.i(TAG, "얼굴 인식 메소드 실행");
+                    if(imageInput == null){
+                        Log.i(TAG, "이미지 인풋이 널일 때");
+                        imageInput = new Mat();
+                    }
+                    Bitmap bitmapOutput = Bitmap.createBitmap(imageInput.cols(), imageInput.rows(), Bitmap.Config.ARGB_8888, true);
+                    Utils.matToBitmap(imageInput, bitmapOutput);
+                    galleryImage.setImageBitmap(null);
+                    galleryImage.setImageBitmap(bitmapOutput);
                 } else {
                     mustacheFilter = false;
+                    if(imageInput == null){
+                        Log.i(TAG, "이미지 인풋이 널일 때");
+                        imageInput = new Mat();
+                    }
+                    galleryImage.setImageBitmap(resized);
                 }
             }
         });
@@ -223,8 +241,24 @@ public class imagePopup extends AppCompatActivity {
                 faceFilterNum++;
                 if (faceFilterNum % 2 == 0) {
                     catBlusherFilter = true;
+
+                    detectFace(imageInput, scale, glasses);
+                    Log.i(TAG, "얼굴 인식 메소드 실행");
+                    if(imageInput == null){
+                        Log.i(TAG, "이미지 인풋이 널일 때");
+                        imageInput = new Mat();
+                    }
+                    Bitmap bitmapOutput = Bitmap.createBitmap(imageInput.cols(), imageInput.rows(), Bitmap.Config.ARGB_8888, true);
+                    Utils.matToBitmap(imageInput, bitmapOutput);
+                    galleryImage.setImageBitmap(null);
+                    galleryImage.setImageBitmap(bitmapOutput);
                 } else {
                     catBlusherFilter = false;
+                    if(imageInput == null){
+                        Log.i(TAG, "이미지 인풋이 널일 때");
+                        imageInput = new Mat();
+                    }
+                    galleryImage.setImageBitmap(resized);
                 }
 
             }
@@ -235,8 +269,24 @@ public class imagePopup extends AppCompatActivity {
                 faceFilterNum++;
                 if (faceFilterNum % 2 == 0) {
                     bearGlassesFilter = true;
+                    detectFace(imageInput, scale, glasses);
+                    Log.i(TAG, "얼굴 인식 메소드 실행");
+
+                    if(imageInput == null){
+                        Log.i(TAG, "이미지 인풋이 널일 때");
+                        imageInput = new Mat();
+                    }
+                    Bitmap bitmapOutput = Bitmap.createBitmap(imageInput.cols(), imageInput.rows(), Bitmap.Config.ARGB_8888, true);
+                    Utils.matToBitmap(imageInput, bitmapOutput);
+                    galleryImage.setImageBitmap(bitmapOutput);
                 } else {
                     bearGlassesFilter = false;
+                    if(imageInput == null){
+                        Log.i(TAG, "이미지 인풋이 널일 때");
+                        imageInput = new Mat();
+                    }
+galleryImage.setImageBitmap(resized);
+
                 }
             }
         });
@@ -384,7 +434,7 @@ public class imagePopup extends AppCompatActivity {
             }
             if (bearGlassesFilter) {
                 matInput = putMask(matInput, new Point(facesArray[i].x + facesArray[i].width * 0.5,
-                        facesArray[i].y + facesArray[i].height * 0.3), new Size(facesArray[i].width + 50, facesArray[i].height + 90));
+                        facesArray[i].y + facesArray[i].height * 0.3), new Size(facesArray[i].width , facesArray[i].height ));
 
             }
             //그레이 이미지에서 faceArray의 i번째 얼굴을 잘라낸다.
