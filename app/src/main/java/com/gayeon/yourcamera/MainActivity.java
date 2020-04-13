@@ -4,6 +4,7 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.graphics.Bitmap;
@@ -16,6 +17,7 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.GridView;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 
@@ -126,6 +128,11 @@ public class MainActivity extends AppCompatActivity
 
     ImageView testImage;
     private Bitmap testGlasses;
+
+    public String basePath = null;
+    public GridView gridView;
+    public galleryAdapter galleryAdapter;
+    ImageButton galleryBtn;
     //회색
     // public native void ConvertRGBtoGray(long matAddrInput, long matAddrResult);
     //  public native long loadCascade(String cascadeFileName);
@@ -161,6 +168,7 @@ public class MainActivity extends AppCompatActivity
         mustacheBtn = findViewById(R.id.mustachebtn);
         catBlusherBtn = findViewById(R.id.catBlusherbtn);
         bearGlassesBtn = findViewById(R.id.bearWithGlassesbtn);
+        galleryBtn = findViewById(R.id.goGallery);
         if (ActivityCompat.checkSelfPermission(MainActivity.this, Manifest.permission.RECORD_AUDIO)
                 != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(MainActivity.this,
@@ -194,6 +202,14 @@ public class MainActivity extends AppCompatActivity
         mat1 = new Mat();
         mat2 = new Mat();
         scale = 1;
+        galleryBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent galleryIntent = new Intent(MainActivity.this, customGallery.class);
+                startActivity(galleryIntent);
+            }
+        });
+
         try {
             Log.i(TAG, "얼굴 필터 이미지 가져오기 ");
 
@@ -259,10 +275,9 @@ public class MainActivity extends AppCompatActivity
             @Override
             public void onClick(View v) {
                 faceFilterNum++;
-                if(faceFilterNum%2==0) {
+                if (faceFilterNum % 2 == 0) {
                     glassesFilter = true;
-                }
-                else{
+                } else {
                     glassesFilter = false;
                 }
             }
@@ -271,9 +286,9 @@ public class MainActivity extends AppCompatActivity
             @Override
             public void onClick(View v) {
                 faceFilterNum++;
-                if(faceFilterNum%2==0) {
+                if (faceFilterNum % 2 == 0) {
                     mustacheFilter = true;
-                }else{
+                } else {
                     mustacheFilter = false;
                 }
             }
@@ -282,10 +297,9 @@ public class MainActivity extends AppCompatActivity
             @Override
             public void onClick(View v) {
                 faceFilterNum++;
-                if(faceFilterNum%2==0) {
+                if (faceFilterNum % 2 == 0) {
                     catBlusherFilter = true;
-                }
-                else{
+                } else {
                     catBlusherFilter = false;
                 }
 
@@ -295,9 +309,9 @@ public class MainActivity extends AppCompatActivity
             @Override
             public void onClick(View v) {
                 faceFilterNum++;
-                if(faceFilterNum%2==0) {
+                if (faceFilterNum % 2 == 0) {
                     bearGlassesFilter = true;
-                }else{
+                } else {
                     bearGlassesFilter = false;
                 }
 
@@ -401,7 +415,7 @@ public class MainActivity extends AppCompatActivity
                 String currentDateandTime = sdf.format(new Date());
 
                 Mat mIntermediateMat = new Mat();
-                Imgproc.cvtColor(matInput, mIntermediateMat, Imgproc.COLOR_RGBA2RGB, 3);
+                Imgproc.cvtColor(matInput, mIntermediateMat, Imgproc.COLOR_RGBA2BGR, 3);
 
                 File path = new File(Environment.getExternalStorageDirectory() + "/Images/");
                 path.mkdirs();
@@ -645,6 +659,7 @@ public class MainActivity extends AppCompatActivity
     @Override
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
         matInput = inputFrame.rgba();
+
         if (FACEDETECT) {
             detectFace(matInput, scale, glasses);
             return matInput;
@@ -665,11 +680,11 @@ public class MainActivity extends AppCompatActivity
             org.opencv.core.Size size = new Size(21, 21);
             Imgproc.boxFilter(matInput, matInput, -1, size);
         }
-        if (ROI == 1)
+        if (ROI == 1) {
             Imgproc.cvtColor(inputFrame.rgba(), mat1, Imgproc.COLOR_RGB2HSV);
-        Core.bitwise_and(matInput, matInput, mat1, mat2);
-        matInput = mat1;
-
+            Core.bitwise_and(matInput, matInput, mat1, mat2);
+            matInput = mat1;
+        }
        /* detect(cascadeClassifier_face, cascadeClassifier_eye, matInput.getNativeObjAddr(),
                 matInput.getNativeObjAddr());
 */
